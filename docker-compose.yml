@@ -1,0 +1,63 @@
+# docker-compose.yml
+#
+# Two profiles:
+#
+#   Local development (no auth, localhost only):
+#     docker compose --profile local up
+#
+#   Production simulation (auth + rate limiting, all interfaces):
+#     docker compose --profile hosted up
+#
+# For a real hosted deployment, use the Dockerfile directly with your
+# orchestrator (Kubernetes, Fly.io, Railway, etc.) and inject secrets
+# via your platform's secret management — not via this file.
+
+services:
+
+  # ── Local development ──────────────────────────────────────────────────────
+  # Runs without authentication — connect at http://localhost:8080/mcp
+  hummingbird-knowledge-local:
+    profiles: [local]
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      HOST: "0.0.0.0"       # Inside the container; port mapping handles external access
+      LOG_LEVEL: "debug"
+      KNOWLEDGE_UPDATE_INTERVAL: "3600"
+      # MCP_AUTH_TOKEN not set — local mode, no authentication
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Hosted / production ────────────────────────────────────────────────────
+  # Requires MCP_AUTH_TOKEN to be set in .env or as an environment variable.
+  # Connect at http://localhost:8080/mcp with Authorization: Bearer <token>
+  hummingbird-knowledge-hosted:
+    profiles: [hosted]
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      LOG_LEVEL: "info"
+      KNOWLEDGE_UPDATE_INTERVAL: "3600"
+      RATE_LIMIT_PER_MINUTE: "60"
+      # Load secrets from .env — never commit actual tokens to the repo
+      MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
