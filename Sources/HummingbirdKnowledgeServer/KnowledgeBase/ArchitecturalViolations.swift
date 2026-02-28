@@ -81,6 +81,36 @@ enum ArchitecturalViolations {
             severity: .error
         ),
 
+        ArchitecturalViolation(
+            id: "business-logic-in-handler",
+            pattern: #"router\.(get|post|put|delete|patch).*\{[^}]*(if\s+\w+\s*[<>=!]+|switch\s+\w+|for\s+\w+\s+in|\.calculate|\.compute|\.process(?!DTO))"#,
+            description: "Business logic detected inside a route handler closure. "
+                + "Route handlers must be thin dispatchers — all business rules, "
+                + "calculations, and processing logic belongs in the service layer.",
+            correctionId: "route-handler-dispatcher-only",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "validation-in-handler",
+            pattern: #"router\.(get|post|put|delete|patch).*\{[^}]*(guard\s+[^}]*(\.isEmpty|\.count|\.contains|!\.)|if\s+[^}]*(\.isEmpty|\.count|\.contains|!\.))"#,
+            description: "Validation logic detected inside a route handler closure. "
+                + "Input validation must be handled by DTO decoding conformance "
+                + "or moved to the service layer — handlers should only dispatch.",
+            correctionId: "route-handler-dispatcher-only",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "data-transformation-in-handler",
+            pattern: #"router\.(get|post|put|delete|patch).*\{[^}]*(\.map\s*\{|\.flatMap\s*\{|\.compactMap\s*\{|\.reduce\(|\.filter\s*\{)"#,
+            description: "Data transformation detected inside a route handler closure. "
+                + "Mapping, filtering, and data formatting belongs in the service layer "
+                + "or DTO conversion — handlers should receive transformed data, not create it.",
+            correctionId: "route-handler-dispatcher-only",
+            severity: .error
+        ),
+
         // ── Warning: suboptimal patterns ──────────────────────────────────────
 
         ArchitecturalViolation(
