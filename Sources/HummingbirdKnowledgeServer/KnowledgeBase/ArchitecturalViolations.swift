@@ -141,6 +141,36 @@ enum ArchitecturalViolations {
             severity: .error
         ),
 
+        ArchitecturalViolation(
+            id: "direct-env-access",
+            pattern: #"(ProcessInfo\.processInfo\.environment\[|getenv\(|ProcessInfo\.environment)"#,
+            description: "Direct environment variable access in application code. "
+                + "All configuration must be loaded through a centralized Configuration struct "
+                + "at startup — never access environment variables directly at runtime.",
+            correctionId: "centralized-configuration",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "hardcoded-url",
+            pattern: #"(let|var)\s+\w+\s*(:\s*String)?\s*=\s*"https?://[^"]+""#,
+            description: "Hardcoded URL in source code. "
+                + "All URLs, endpoints, and external service addresses must be "
+                + "defined in configuration — never hardcoded as string literals.",
+            correctionId: "centralized-configuration",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "hardcoded-credentials",
+            pattern: #"(let|var)\s+\w*(password|secret|key|token|apiKey|apiSecret)\w*\s*=\s*"[^"]+"(?!")"#,
+            description: "Hardcoded credential or secret in source code. "
+                + "Secrets must NEVER be committed to code — use environment variables "
+                + "loaded through secure configuration at runtime.",
+            correctionId: "secure-configuration",
+            severity: .error
+        ),
+
         // ── Warning: suboptimal patterns ──────────────────────────────────────
 
         ArchitecturalViolation(
@@ -160,6 +190,17 @@ enum ArchitecturalViolations {
                 + "Context is value-typed (struct) and Sendable — pass it explicitly "
                 + "rather than capturing it across isolation boundaries.",
             correctionId: "request-context-di",
+            severity: .warning
+        ),
+
+        ArchitecturalViolation(
+            id: "magic-numbers",
+            pattern: #"(timeout|limit|maxConnections|port|bufferSize|retryCount)\s*[=:]\s*\d{2,}"#,
+            description: "Magic number used for configuration value. "
+                + "Numeric configuration constants (timeouts, limits, ports, etc.) "
+                + "should be defined as named constants or loaded from configuration, "
+                + "not embedded as raw literals.",
+            correctionId: "centralized-configuration",
             severity: .warning
         ),
     ]

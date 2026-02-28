@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "006-expand-architectural-violation-catalogue",
+  "state": "building",
+  "subtasks": {
+    "completed": 2,
+    "total": 13,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Configuration & Validation Violations",
+    "id": null,
+    "total": 2
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 4,
+    "started_at": "2026-02-28T13:21:41.583736"
+  },
+  "last_update": "2026-02-28T13:31:52.076334"
+}
