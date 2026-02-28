@@ -22,6 +22,10 @@ let package = Package(
             url: "https://github.com/swift-server/swift-service-lifecycle.git",
             from: "2.0.0"
         ),
+        .package(
+            url: "https://github.com/hummingbird-project/hummingbird-testing.git",
+            from: "2.0.0"
+        ),
     ],
     targets: [
         .executableTarget(
@@ -36,6 +40,17 @@ let package = Package(
             resources: [
                 .copy("KnowledgeBase/knowledge.json"),
             ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
+        .testTarget(
+            name: "HummingbirdKnowledgeServerTests",
+            dependencies: [
+                .target(name: "HummingbirdKnowledgeServer"),
+                .product(name: "HummingbirdTesting", package: "hummingbird-testing"),
+            ],
+            path: "Tests/HummingbirdKnowledgeServerTests",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]
