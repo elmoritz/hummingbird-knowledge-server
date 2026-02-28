@@ -107,17 +107,146 @@ struct KnowledgeUpdateService: Service {
     // MARK: - SSWG Index
 
     private func checkSSWGIndex() async {
-        // SSWG packages page — we fetch and note any status changes
-        // In a full implementation this would parse the SSWG JSON index
-        let url = URL(string: "https://swift.org/api/v1/packages.json")!
+        // Fetch SSWG package collection with maturity status
+        // Uses hybrid approach: maturity endpoints + package collection for rich metadata
+
         do {
-            let (_, response) = try await URLSession.shared.data(from: url)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                return
+            // Step 1: Fetch maturity status from three endpoints
+            let statusMap = await fetchSSWGMaturityStatus()
+
+            // Step 2: Fetch rich package metadata from collection
+            let packages = await fetchSSWGPackageCollection()
+
+            // Step 3: Merge and create knowledge entries
+            var entries: [KnowledgeEntry] = []
+            for package in packages {
+                guard let url = package["url"] as? String else { continue }
+
+                let packageName = extractPackageName(from: url)
+                let summary = package["summary"] as? String ?? ""
+                let keywords = (package["keywords"] as? [String] ?? []).joined(separator: ", ")
+                let status = statusMap[url] ?? "unknown"
+
+                let content = buildPackageContent(
+                    name: packageName,
+                    url: url,
+                    summary: summary,
+                    keywords: keywords,
+                    status: status
+                )
+
+                let entry = KnowledgeEntry(
+                    id: "sswg-package-\(packageName.lowercased())",
+                    title: "SSWG Package: \(packageName)",
+                    content: content,
+                    layer: nil,
+                    patternIds: [],
+                    violationIds: [],
+                    hummingbirdVersionRange: ">=2.0",
+                    swiftVersionRange: ">=5.8",
+                    isTutorialPattern: false,
+                    correctionId: nil,
+                    confidence: 0.85,
+                    source: "sswg-index",
+                    lastVerifiedAt: Date()
+                )
+                entries.append(entry)
             }
-            logger.debug("SSWG index reachable")
+
+            if !entries.isEmpty {
+                await store.upsertAll(entries)
+                logger.info("Updated SSWG package entries", metadata: ["count": "\(entries.count)"])
+            }
         } catch {
-            logger.debug("SSWG index check failed (non-critical)", metadata: ["error": "\(error)"])
+            logger.warning("Failed to update SSWG index", metadata: ["error": "\(error)"])
         }
+    }
+
+    private func fetchSSWGMaturityStatus() async -> [String: String] {
+        var statusMap: [String: String] = [:]
+
+        let maturityEndpoints = [
+            ("graduated", "https://swift.org/api/v1/sswg/incubation/graduated.json"),
+            ("incubating", "https://swift.org/api/v1/sswg/incubation/incubating.json"),
+            ("sandbox", "https://swift.org/api/v1/sswg/incubation/sandbox.json"),
+        ]
+
+        for (status, urlString) in maturityEndpoints {
+            guard let url = URL(string: urlString) else { continue }
+
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    logger.debug("SSWG maturity endpoint returned non-200", metadata: [
+                        "status": "\(status)",
+                        "url": "\(urlString)",
+                    ])
+                    continue
+                }
+
+                if let urls = try? JSONSerialization.jsonObject(with: data) as? [String] {
+                    for packageUrl in urls {
+                        statusMap[packageUrl] = status
+                    }
+                    logger.debug("Fetched SSWG maturity level", metadata: [
+                        "status": "\(status)",
+                        "count": "\(urls.count)",
+                    ])
+                }
+            } catch {
+                logger.debug("Failed to fetch SSWG maturity level", metadata: [
+                    "status": "\(status)",
+                    "error": "\(error)",
+                ])
+            }
+        }
+
+        return statusMap
+    }
+
+    private func fetchSSWGPackageCollection() async -> [[String: Any]] {
+        let urlString = "https://swiftserver.group/collection/sswg.json"
+        guard let url = URL(string: urlString) else { return [] }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                logger.debug("SSWG collection endpoint returned non-200", metadata: ["url": "\(urlString)"])
+                return []
+            }
+
+            if let collection = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let packages = collection["packages"] as? [[String: Any]] {
+                logger.debug("Fetched SSWG package collection", metadata: ["count": "\(packages.count)"])
+                return packages
+            }
+        } catch {
+            logger.debug("Failed to fetch SSWG package collection", metadata: ["error": "\(error)"])
+        }
+
+        return []
+    }
+
+    private func extractPackageName(from url: String) -> String {
+        // Extract package name from Git URL
+        // e.g., "https://github.com/apple/swift-nio.git" -> "swift-nio"
+        let components = url.split(separator: "/")
+        guard let lastComponent = components.last else { return "unknown" }
+        return lastComponent.replacingOccurrences(of: ".git", with: "")
+    }
+
+    private func buildPackageContent(name: String, url: String, summary: String, keywords: String, status: String) -> String {
+        var content = "# \(name)\n\n"
+        content += "**SSWG Status:** \(status)\n\n"
+        if !summary.isEmpty {
+            content += "## Summary\n\n\(summary)\n\n"
+        }
+        if !keywords.isEmpty {
+            content += "**Keywords:** \(keywords)\n\n"
+        }
+        content += "**Repository:** \(url)\n"
+        return content
     }
 }

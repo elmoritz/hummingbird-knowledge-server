@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "006-expand-architectural-violation-catalogue",
+  "spec": "002-complete-sswg-index-integration",
   "state": "building",
   "subtasks": {
-    "completed": 7,
-    "total": 13,
+    "completed": 1,
+    "total": 6,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Error Handling & Response Violations",
+    "current": "SSWG Index Parsing and Storage",
     "id": null,
-    "total": 2
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 9,
-    "started_at": "2026-02-28T13:21:41.583736"
+    "number": 1,
+    "started_at": "2026-02-28T22:33:35.370473"
   },
-  "last_update": "2026-02-28T13:40:56.240566"
+  "last_update": "2026-02-28T22:33:35.429043"
 }
