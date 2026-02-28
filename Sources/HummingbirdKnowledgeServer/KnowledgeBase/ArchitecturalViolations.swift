@@ -262,6 +262,36 @@ enum ArchitecturalViolations {
         ),
 
         ArchitecturalViolation(
+            id: "response-without-status-code",
+            pattern: #"Response\s*\([^)]*(?!status:)[^)]*\)"#,
+            description: "Response created without explicit status code. "
+                + "Every HTTP response must explicitly set a status code — "
+                + "implicit defaults hide intent and make API behavior unclear to readers.",
+            correctionId: "explicit-http-status-codes",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "inconsistent-response-format",
+            pattern: #"return\s+Response\s*\([^)]*body:[^)]*"[^"]*"[^)]*\)"#,
+            description: "Response created with hardcoded string body instead of DTO. "
+                + "All HTTP responses must use structured DTOs for consistency — "
+                + "never return raw strings or manually constructed JSON in Response bodies.",
+            correctionId: "dtos-at-boundaries",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "response-missing-content-type",
+            pattern: #"Response\s*\([^)]*body:[^)]*\)(?!\s*\.withHeader\s*\(.*content-type)"#,
+            description: "Response created without Content-Type header. "
+                + "HTTP responses must explicitly declare their media type — "
+                + "add .withHeader(.contentType, \"application/json\") or use response encoding middleware.",
+            correctionId: "explicit-content-type-headers",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
             id: "sleep-in-handler",
             pattern: #"router\.(get|post|put|delete|patch).*\{[^}]*(sleep\(|Thread\.sleep|usleep\()"#,
             description: "Sleep call detected inside a route handler. "
