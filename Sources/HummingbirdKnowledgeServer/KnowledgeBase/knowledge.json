@@ -135,6 +135,21 @@
     "lastVerifiedAt": "2025-01-01T00:00:00Z"
   },
   {
+    "id": "request-validation-via-dto",
+    "title": "Request Validation Through DTOs",
+    "content": "All HTTP request data (path parameters, query parameters, request bodies) must be validated through DTO decoding, not accessed raw from the request object. DTOs enforce type safety, validation rules, and provide a clean contract between HTTP and service layers.\n\n```swift\n// ✅ Correct — validate through DTO\nstruct CreateUserRequest: Decodable {\n    let email: String\n    let age: Int\n\n    enum CodingKeys: String, CodingKey {\n        case email, age\n    }\n\n    init(from decoder: Decoder) throws {\n        let container = try decoder.container(keyedBy: CodingKeys.self)\n        email = try container.decode(String.self, forKey: .email)\n        age = try container.decode(Int.self, forKey: .age)\n        \n        // Validation at the DTO boundary\n        guard email.contains(\"@\") else {\n            throw DecodingError.dataCorruptedError(\n                forKey: .email,\n                in: container,\n                debugDescription: \"Email must be valid\"\n            )\n        }\n        guard age >= 13 else {\n            throw DecodingError.dataCorruptedError(\n                forKey: .age,\n                in: container,\n                debugDescription: \"Must be 13 or older\"\n            )\n        }\n    }\n}\n\nrouter.post(\"/users\") { request, context in\n    let dto = try await request.decode(as: CreateUserRequest.self, context: context)\n    return try await context.dependencies.userService.create(dto)\n}\n\n// ❌ Wrong — raw parameter access without validation\nrouter.post(\"/users\") { request, context in\n    let email = request.uri.queryParameters[\"email\"] ?? \"\"\n    let ageStr = request.uri.queryParameters[\"age\"] ?? \"0\"\n    let age = Int(ageStr) ?? 0\n    // No validation, unsafe parsing, brittle code\n    return try await context.dependencies.userService.create(email: email, age: age)\n}\n```",
+    "layer": "controller",
+    "patternIds": ["dto-pattern", "api-boundary", "request-validation"],
+    "violationIds": ["unchecked-uri-parameters", "unchecked-query-parameters", "raw-parameter-in-service-call", "missing-request-decode"],
+    "hummingbirdVersionRange": ">=2.0.0",
+    "swiftVersionRange": ">=6.0",
+    "isTutorialPattern": false,
+    "correctionId": null,
+    "confidence": 1.0,
+    "source": "embedded",
+    "lastVerifiedAt": "2025-01-01T00:00:00Z"
+  },
+  {
     "id": "inline-handler-anti-pattern",
     "title": "Anti-Pattern: All Logic Inline in Route Handlers",
     "content": "Tutorials often show all logic inline in a route handler for brevity. This is an anti-pattern in production code: it creates untestable handlers, couples framework to business logic, and makes layers impossible to reason about independently.\n\n```swift\n// ❌ ANTI-PATTERN — tutorial style, not production style\nrouter.post(\"/register\") { request, context in\n    struct Body: Decodable { var email: String; var password: String }\n    let body = try await request.decode(as: Body.self, context: context)\n    guard !body.email.isEmpty else { return Response(status: .badRequest) }\n    let hash = SHA256.hash(data: Data(body.password.utf8)).description\n    // Directly using global DB connection:\n    try await db.execute(\"INSERT INTO users ...\", [body.email, hash])\n    return Response(status: .created)\n}\n```\n\nThe correct approach uses the service layer for all business logic, the repository for DB access, and the context for injection.",
