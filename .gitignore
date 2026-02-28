@@ -2,3 +2,6 @@
 .swiftpm
 DerivedData
 *.env*
+
+# Auto Claude data directory
+.auto-claude/
