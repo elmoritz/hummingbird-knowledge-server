@@ -21,8 +21,12 @@ final class AuthMiddlewareTests: XCTestCase {
         try await app.test(.router) { client in
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [.authorization: "Bearer test-token"]
+                method: .post,
+                headers: [
+                    .authorization: "Bearer test-token",
+                    .contentType: "application/json"
+                ],
+                body: ByteBuffer(string: "{}")
             )
 
             // Should successfully reach the MCP endpoint
@@ -57,8 +61,12 @@ final class AuthMiddlewareTests: XCTestCase {
         try await app.test(.router) { client in
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [.authorization: "Bearer wrong-token"]
+                method: .post,
+                headers: [
+                    .authorization: "Bearer wrong-token",
+                    .contentType: "application/json"
+                ],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -82,8 +90,12 @@ final class AuthMiddlewareTests: XCTestCase {
             // Missing "Bearer " prefix
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [.authorization: "test-token"]
+                method: .post,
+                headers: [
+                    .authorization: "test-token",
+                    .contentType: "application/json"
+                ],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -101,8 +113,12 @@ final class AuthMiddlewareTests: XCTestCase {
             // "Bearer " prefix but no actual token
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [.authorization: "Bearer "]
+                method: .post,
+                headers: [
+                    .authorization: "Bearer ",
+                    .contentType: "application/json"
+                ],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -121,8 +137,9 @@ final class AuthMiddlewareTests: XCTestCase {
         try await app.test(.router) { client in
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -145,8 +162,12 @@ final class AuthMiddlewareTests: XCTestCase {
         try await app.test(.router) { client in
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [.authorization: ""]
+                method: .post,
+                headers: [
+                    .authorization: "",
+                    .contentType: "application/json"
+                ],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -290,8 +311,12 @@ final class AuthMiddlewareTests: XCTestCase {
             // "TEST-TOKEN" should not match "test-token"
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [.authorization: "Bearer TEST-TOKEN"]
+                method: .post,
+                headers: [
+                    .authorization: "Bearer TEST-TOKEN",
+                    .contentType: "application/json"
+                ],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -310,8 +335,12 @@ final class AuthMiddlewareTests: XCTestCase {
             // "bearer " (lowercase) should not work because we check for "Bearer "
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [.authorization: "bearer test-token"]
+                method: .post,
+                headers: [
+                    .authorization: "bearer test-token",
+                    .contentType: "application/json"
+                ],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -331,8 +360,12 @@ final class AuthMiddlewareTests: XCTestCase {
             // Token with leading/trailing spaces should not match
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [.authorization: "Bearer  test-token"]
+                method: .post,
+                headers: [
+                    .authorization: "Bearer  test-token",
+                    .contentType: "application/json"
+                ],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(

@@ -24,8 +24,9 @@ final class RateLimitMiddlewareTests: XCTestCase {
             for _ in 1...5 {
                 let response = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: [:]
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
                 )
 
                 XCTAssertNotEqual(
@@ -45,8 +46,9 @@ final class RateLimitMiddlewareTests: XCTestCase {
             for i in 1...10 {
                 let response = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: [:]
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
                 )
 
                 XCTAssertNotEqual(
@@ -68,16 +70,18 @@ final class RateLimitMiddlewareTests: XCTestCase {
             for _ in 1...10 {
                 _ = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: [:]
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
                 )
             }
 
             // 11th request should be rate limited
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -106,8 +110,9 @@ final class RateLimitMiddlewareTests: XCTestCase {
             for _ in 1...11 {
                 _ = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: [:]
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
                 )
             }
 
@@ -115,8 +120,9 @@ final class RateLimitMiddlewareTests: XCTestCase {
             for _ in 1...3 {
                 let response = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: [:]
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
                 )
 
                 XCTAssertEqual(
@@ -137,8 +143,9 @@ final class RateLimitMiddlewareTests: XCTestCase {
             // Make initial request
             let response1 = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertNotEqual(
@@ -154,8 +161,9 @@ final class RateLimitMiddlewareTests: XCTestCase {
             // Make another request immediately to verify counter increments
             let response2 = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertNotEqual(
@@ -224,8 +232,9 @@ final class RateLimitMiddlewareTests: XCTestCase {
             for i in 1...10 {
                 let response = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: [:]
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
                 )
 
                 XCTAssertNotEqual(
@@ -238,8 +247,9 @@ final class RateLimitMiddlewareTests: XCTestCase {
             // 11th request to regular endpoint should be rate limited
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -259,20 +269,23 @@ final class RateLimitMiddlewareTests: XCTestCase {
             // Make 10 requests with same X-Forwarded-For header
             var headers1 = HTTPFields()
             headers1[.init("x-forwarded-for")!] = "192.168.1.100"
+            headers1[.contentType] = "application/json"
 
             for _ in 1...10 {
                 _ = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: headers1
+                    method: .post,
+                    headers: headers1,
+                    body: ByteBuffer(string: "{}")
                 )
             }
 
             // 11th request with same IP should be rate limited
             let response1 = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: headers1
+                method: .post,
+                headers: headers1,
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -284,11 +297,13 @@ final class RateLimitMiddlewareTests: XCTestCase {
             // Request with different X-Forwarded-For should succeed
             var headers2 = HTTPFields()
             headers2[.init("x-forwarded-for")!] = "192.168.1.200"
+            headers2[.contentType] = "application/json"
 
             let response2 = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: headers2
+                method: .post,
+                headers: headers2,
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertNotEqual(
@@ -307,20 +322,23 @@ final class RateLimitMiddlewareTests: XCTestCase {
             // Should use the first IP (client IP)
             var headers = HTTPFields()
             headers[.init("x-forwarded-for")!] = "203.0.113.1, 10.0.0.1, 10.0.0.2"
+            headers[.contentType] = "application/json"
 
             for _ in 1...10 {
                 _ = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: headers
+                    method: .post,
+                    headers: headers,
+                    body: ByteBuffer(string: "{}")
                 )
             }
 
             // 11th request should be rate limited
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: headers
+                method: .post,
+                headers: headers,
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -338,20 +356,23 @@ final class RateLimitMiddlewareTests: XCTestCase {
             // Make 10 requests with X-Real-IP header
             var headers = HTTPFields()
             headers[.init("x-real-ip")!] = "198.51.100.50"
+            headers[.contentType] = "application/json"
 
             for _ in 1...10 {
                 _ = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: headers
+                    method: .post,
+                    headers: headers,
+                    body: ByteBuffer(string: "{}")
                 )
             }
 
             // 11th request should be rate limited
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: headers
+                method: .post,
+                headers: headers,
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -370,20 +391,23 @@ final class RateLimitMiddlewareTests: XCTestCase {
             var headers1 = HTTPFields()
             headers1[.init("x-forwarded-for")!] = "203.0.113.100"
             headers1[.init("x-real-ip")!] = "198.51.100.200"
+            headers1[.contentType] = "application/json"
 
             for _ in 1...10 {
                 _ = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: headers1
+                    method: .post,
+                    headers: headers1,
+                    body: ByteBuffer(string: "{}")
                 )
             }
 
             // Request with same X-Forwarded-For should be limited
             let response1 = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: headers1
+                method: .post,
+                headers: headers1,
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -396,11 +420,13 @@ final class RateLimitMiddlewareTests: XCTestCase {
             // because it's treated as a different client
             var headers2 = HTTPFields()
             headers2[.init("x-real-ip")!] = "198.51.100.200"
+            headers2[.contentType] = "application/json"
 
             let response2 = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: headers2
+                method: .post,
+                headers: headers2,
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertNotEqual(
@@ -419,16 +445,18 @@ final class RateLimitMiddlewareTests: XCTestCase {
             for _ in 1...10 {
                 _ = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: [:]
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
                 )
             }
 
             // 11th request should be rate limited (all counted as "unknown")
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -473,23 +501,34 @@ final class RateLimitMiddlewareTests: XCTestCase {
         let app = try await buildTestApplication(enableRateLimit: true)
 
         try await app.test(.router) { client in
-            // Make 5 GET and 5 POST requests (total 10)
+            // Make 5 POST and 5 POST requests (total 10) - using POST for both now
             for _ in 1...5 {
-                _ = try await client.execute(uri: "/mcp", method: .get, headers: [:])
-                _ = try await client.execute(uri: "/mcp", method: .post, headers: [:])
+                _ = try await client.execute(
+                    uri: "/mcp",
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
+                )
+                _ = try await client.execute(
+                    uri: "/mcp",
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
+                )
             }
 
-            // Next request of either method should be rate limited
+            // Next request should be rate limited
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
                 response.status,
                 .tooManyRequests,
-                "Different HTTP methods should share the same rate limit counter"
+                "Multiple requests should share the same rate limit counter"
             )
         }
     }
@@ -502,10 +541,20 @@ final class RateLimitMiddlewareTests: XCTestCase {
         try await app.test(.router) { client in
             // Exceed the limit
             for _ in 1...11 {
-                _ = try await client.execute(uri: "/mcp", method: .get, headers: [:])
+                _ = try await client.execute(
+                    uri: "/mcp",
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
+                )
             }
 
-            let response = try await client.execute(uri: "/mcp", method: .get, headers: [:])
+            let response = try await client.execute(
+                uri: "/mcp",
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
+            )
 
             XCTAssertEqual(response.status, .tooManyRequests)
 

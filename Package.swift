@@ -47,6 +47,9 @@ let package = Package(
                 .product(name: "HummingbirdTesting", package: "hummingbird"),
             ],
             path: "Tests/HummingbirdKnowledgeServerTests",
+            resources: [
+                .copy("Fixtures/knowledge-test.json"),
+            ],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]
