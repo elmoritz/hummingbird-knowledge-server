@@ -36,72 +36,60 @@ struct GetPackageRecommendationTool: ToolHandler {
             )
         }
 
-        // Embedded SSWG package catalogue — updated by KnowledgeUpdateService
-        let catalogue: [(need: String, package: String, url: String, status: String, notes: String)] = [
-            ("database postgresql postgres", "PostgresNIO / FluentPostgresDriver",
-             "https://github.com/vapor/postgres-nio",
-             "SSWG Graduated",
-             "Low-level PostgreSQL driver. Use FluentPostgresDriver for ORM support."),
-            ("mysql database", "MySQLNIO / FluentMySQLDriver",
-             "https://github.com/vapor/mysql-nio",
-             "SSWG Graduated",
-             "Low-level MySQL driver."),
-            ("sqlite database", "SQLiteNIO / FluentSQLiteDriver",
-             "https://github.com/vapor/sqlite-nio",
-             "SSWG Graduated",
-             "SQLite driver, ideal for local/testing deployments."),
-            ("redis caching", "RediStack",
-             "https://github.com/swift-server/RediStack",
-             "SSWG Graduated",
-             "Pure Swift Redis client. Use for rate limiting shared state across instances."),
-            ("logging structured", "swift-log",
-             "https://github.com/apple/swift-log",
-             "SSWG Graduated",
-             "The standard Swift structured logging API. Already used by Hummingbird."),
-            ("metrics observability", "swift-metrics",
-             "https://github.com/apple/swift-metrics",
-             "SSWG Graduated",
-             "Standard Swift metrics API. Add prometheus backend for hosted deployments."),
-            ("jwt authentication", "swift-jwt JWTKit",
-             "https://github.com/vapor/jwt-kit",
-             "SSWG Incubating",
-             "JWT signing and verification. Integrate with Hummingbird's auth middleware."),
-            ("websocket", "Hummingbird WebSocket",
-             "https://github.com/hummingbird-project/hummingbird-websocket",
-             "Hummingbird ecosystem",
-             "Official WebSocket support for Hummingbird 2.x."),
-            ("http client", "AsyncHTTPClient",
-             "https://github.com/swift-server/async-http-client",
-             "SSWG Graduated",
-             "NIO-based async HTTP client. Use for outbound HTTP calls from services."),
-            ("email smtp", "Smtp",
-             "https://github.com/apple/swift-nio",
-             "Community",
-             "Use NIO SMTP or a third-party email service API (SendGrid, Postmark)."),
-        ]
+        // Fetch SSWG packages from KnowledgeStore (populated by KnowledgeUpdateService)
+        let allEntries = await store.allEntries()
+        let sswgPackages = allEntries.filter { $0.source == "sswg-index" }
 
         let lowerNeed = need.lowercased()
-        let matches = catalogue.filter { item in
-            item.need.split(separator: " ").contains { lowerNeed.contains($0) }
-                || lowerNeed.split(separator: " ").contains { item.need.contains($0) }
+        let needTerms = lowerNeed.split(separator: " ").map(String.init)
+
+        // Match packages based on title, content, and keywords
+        let matches = sswgPackages.filter { entry in
+            let searchableText = "\(entry.title) \(entry.content)".lowercased()
+            return needTerms.contains { term in
+                searchableText.contains(term)
+            }
         }
 
         var lines: [String] = ["# Package Recommendation: \(need)\n"]
 
         if matches.isEmpty {
-            lines.append("No specific SSWG package found for '\(need)'.")
+            // Fallback message when no matches found
+            if sswgPackages.isEmpty {
+                lines.append("SSWG package index is currently loading or unavailable.")
+                lines.append("Please try again in a moment, or browse:")
+            } else {
+                lines.append("No specific SSWG package found for '\(need)'.")
+            }
             lines.append("")
             lines.append("**Browse the full index:** https://swift.org/server/packages/")
             lines.append("**SSWG process:** https://github.com/swift-server/sswg")
         } else {
-            for match in matches {
-                lines.append("## \(match.package)")
-                lines.append("**Status:** \(match.status)")
-                lines.append("**URL:** \(match.url)")
+            // Sort matches by confidence, then alphabetically
+            let sortedMatches = matches.sorted {
+                if $0.confidence != $1.confidence {
+                    return $0.confidence > $1.confidence
+                }
+                return $0.title < $1.title
+            }
+
+            for entry in sortedMatches {
+                // Extract package name from title (format: "SSWG Package: {name}")
+                let packageName = entry.title.replacingOccurrences(of: "SSWG Package: ", with: "")
+                lines.append("## \(packageName)")
                 lines.append("")
-                lines.append(match.notes)
+
+                // Parse and format the content
+                let contentLines = entry.content.split(separator: "\n")
+                for line in contentLines {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if !trimmed.isEmpty && !trimmed.hasPrefix("#") {
+                        lines.append(String(line))
+                    }
+                }
                 lines.append("")
             }
+
             lines.append("---")
             lines.append("Verify current status at: https://swift.org/server/packages/")
         }
