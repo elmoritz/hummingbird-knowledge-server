@@ -29,10 +29,15 @@ func buildTestApplication(
     enableRateLimit: Bool = false
 ) async throws -> some ApplicationProtocol {
 
-    let logger = Logger(label: "com.hummingbird-knowledge-server.test")
+    _ = Logger(label: "com.hummingbird-knowledge-server.test")
 
     // ── Test Knowledge Store ──────────────────────────────────────────────────
-    let seedEntries = knowledgeEntries ?? try loadTestFixture()
+    let seedEntries: [KnowledgeEntry]
+    if let knowledgeEntries = knowledgeEntries {
+        seedEntries = knowledgeEntries
+    } else {
+        seedEntries = try loadTestFixture()
+    }
     let knowledgeStore = KnowledgeStore(seedEntries: seedEntries)
 
     // ── Test MCP Server ───────────────────────────────────────────────────────
