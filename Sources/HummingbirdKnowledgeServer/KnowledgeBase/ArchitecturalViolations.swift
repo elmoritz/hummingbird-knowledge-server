@@ -142,6 +142,46 @@ enum ArchitecturalViolations {
         ),
 
         ArchitecturalViolation(
+            id: "missing-request-decode",
+            pattern: #"router\.(post|put|patch).*\{(?!.*request\.decode\(|.*decode\(as:)[^}]{50,}\}"#,
+            description: "POST/PUT/PATCH handler with no request.decode() call. "
+                + "Handlers that accept request bodies must decode them into DTOs "
+                + "for type safety and validation — never parse request data manually.",
+            correctionId: "dtos-at-boundaries",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "unchecked-uri-parameters",
+            pattern: #"request\.uri\.path(?!\s*(==|!=|\.starts|\.contains))|\blet\s+\w+\s*=\s*request\.uri\.path\b"#,
+            description: "Direct access to request.uri.path without validation. "
+                + "URI paths must be validated before use — either through route parameter "
+                + "binding with type constraints or explicit validation in DTOs.",
+            correctionId: "request-validation-via-dto",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "unchecked-query-parameters",
+            pattern: #"request\.uri\.queryParameters(?!\s*\.isEmpty)|\blet\s+\w+\s*=\s*request\.uri\.queryParameters\[(?!.*guard|.*if let)"#,
+            description: "Direct access to query parameters without validation. "
+                + "Query parameters must be validated through DTO decoding — "
+                + "never access queryParameters dictionary directly and pass raw values to services.",
+            correctionId: "request-validation-via-dto",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "raw-parameter-in-service-call",
+            pattern: #"service\.\w+\([^)]*request\.(uri|parameters|headers)\."#,
+            description: "Raw request property passed directly to service layer method. "
+                + "All request data must be validated and converted to DTOs before "
+                + "passing to the service layer — services must not receive raw Request objects.",
+            correctionId: "request-validation-via-dto",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
             id: "direct-env-access",
             pattern: #"(ProcessInfo\.processInfo\.environment\[|getenv\(|ProcessInfo\.environment)"#,
             description: "Direct environment variable access in application code. "
