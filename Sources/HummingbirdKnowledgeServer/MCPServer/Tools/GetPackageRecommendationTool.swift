@@ -37,8 +37,7 @@ struct GetPackageRecommendationTool: ToolHandler {
         }
 
         // Fetch SSWG packages from KnowledgeStore (populated by KnowledgeUpdateService)
-        let allEntries = await store.allEntries()
-        let sswgPackages = allEntries.filter { $0.source == "sswg-index" }
+        let sswgPackages = await store.sswgPackages()
 
         let lowerNeed = need.lowercased()
         let needTerms = lowerNeed.split(separator: " ").map(String.init)

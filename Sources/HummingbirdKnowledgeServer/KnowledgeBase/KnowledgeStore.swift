@@ -93,6 +93,10 @@ actor KnowledgeStore {
         entries.values.filter { $0.isTutorialPattern }
     }
 
+    func sswgPackages() -> [KnowledgeEntry] {
+        entries.values.filter { $0.source == "sswg-index" }
+    }
+
     // MARK: - Violation detection
 
     /// Matches `code` against the compiled violation catalogue.
