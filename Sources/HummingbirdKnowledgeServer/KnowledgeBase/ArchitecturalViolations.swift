@@ -212,6 +212,56 @@ enum ArchitecturalViolations {
         ),
 
         ArchitecturalViolation(
+            id: "swallowed-error",
+            pattern: #"catch\s*\{[\s\n]*\}"#,
+            description: "Empty catch block that swallows errors without handling. "
+                + "Silently ignoring errors hides failures and makes debugging impossible — "
+                + "always log errors, convert them to AppError, or handle them explicitly.",
+            correctionId: "typed-errors-app-error",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "error-discarded-with-underscore",
+            pattern: #"catch\s+(_|\w+)\s*\{(?!.*logger|.*log\.|.*throw|.*AppError)"#,
+            description: "Error caught but not logged or re-thrown. "
+                + "Catching an error without logging it or wrapping it in AppError "
+                + "makes production debugging impossible — always preserve error context.",
+            correctionId: "typed-errors-app-error",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "generic-error-message",
+            pattern: #"throw\s+\w*Error\("[^"]{1,20}"\)(?!.*:)"#,
+            description: "Error thrown with generic message and no context. "
+                + "Error messages must include context about what failed and why — "
+                + "add details like entity IDs, operation names, or input values that failed validation.",
+            correctionId: "typed-errors-app-error",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "print-in-error-handler",
+            pattern: #"catch[^}]*\{[^}]*(print\(|debugPrint\()"#,
+            description: "print() or debugPrint() used in error handling instead of structured logging. "
+                + "Print statements are not searchable, not structured, and disappear in production — "
+                + "use Logger with proper log levels and context instead.",
+            correctionId: "structured-logging",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "missing-error-wrapping",
+            pattern: #"catch\s+let\s+(\w+)\s*\{[^}]*throw\s+\1\s*\}"#,
+            description: "Third-party error re-thrown directly without wrapping in AppError. "
+                + "Raw errors from libraries leak implementation details to clients — "
+                + "wrap all external errors in AppError with context about the operation that failed.",
+            correctionId: "typed-errors-app-error",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
             id: "sleep-in-handler",
             pattern: #"router\.(get|post|put|delete|patch).*\{[^}]*(sleep\(|Thread\.sleep|usleep\()"#,
             description: "Sleep call detected inside a route handler. "
