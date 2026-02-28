@@ -211,6 +211,56 @@ enum ArchitecturalViolations {
             severity: .error
         ),
 
+        ArchitecturalViolation(
+            id: "sleep-in-handler",
+            pattern: #"router\.(get|post|put|delete|patch).*\{[^}]*(sleep\(|Thread\.sleep|usleep\()"#,
+            description: "Sleep call detected inside a route handler. "
+                + "Blocking the thread pool with sleep() destroys concurrency performance — "
+                + "use Task.sleep() or await-based delays instead of blocking sleep calls.",
+            correctionId: "async-concurrency-patterns",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "blocking-io-in-async",
+            pattern: #"(async\s+func|async\s+throws|async\s*\{)[^}]*(FileHandle\(|FileManager\.default\.(contents|createFile|removeItem|moveItem|copyItem)\(|fopen\(|fread\(|fwrite\()"#,
+            description: "Blocking file I/O operation in async context. "
+                + "Synchronous file operations block the async thread pool — "
+                + "use AsyncFileHandle, NIO's NonBlockingFileIO, or dispatch to a dedicated queue.",
+            correctionId: "non-blocking-io",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "synchronous-network-call",
+            pattern: #"(URLSession\.shared\.dataTask\(|NSURLConnection\.sendSynchronousRequest|URLSession\(configuration:.*\)\.dataTask\()(?!.*await)"#,
+            description: "Synchronous or completion-handler-based network call. "
+                + "Legacy URLSession.dataTask blocks threads and breaks structured concurrency — "
+                + "use async/await URLSession.data(for:) instead.",
+            correctionId: "async-concurrency-patterns",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "blocking-sleep-in-async",
+            pattern: #"(async\s+func|async\s+throws|async\s*\{)[^}]*(sleep\(|Thread\.sleep|usleep\()"#,
+            description: "Blocking sleep call in async context. "
+                + "sleep() and Thread.sleep() block the cooperative thread pool — "
+                + "use Task.sleep(nanoseconds:) or Task.sleep(for:) to yield correctly.",
+            correctionId: "async-concurrency-patterns",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "synchronous-database-call-in-async",
+            pattern: #"(async\s+func|async\s+throws|async\s*\{)[^}]*(\.execute\(\)|\.query\()[^}]*(?!await)"#,
+            description: "Database call in async context without await. "
+                + "Synchronous database operations block the thread pool — "
+                + "all database calls must use async/await to preserve concurrency.",
+            correctionId: "async-concurrency-patterns",
+            severity: .error
+        ),
+
         // ── Warning: suboptimal patterns ──────────────────────────────────────
 
         ArchitecturalViolation(
