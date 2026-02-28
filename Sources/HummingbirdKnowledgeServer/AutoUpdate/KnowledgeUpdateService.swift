@@ -110,55 +110,62 @@ struct KnowledgeUpdateService: Service {
         // Fetch SSWG package collection with maturity status
         // Uses hybrid approach: maturity endpoints + package collection for rich metadata
 
-        do {
-            // Step 1: Fetch maturity status from three endpoints
-            let statusMap = await fetchSSWGMaturityStatus()
+        // Step 1: Fetch maturity status from three endpoints
+        let statusMap = await fetchSSWGMaturityStatus()
 
-            // Step 2: Fetch rich package metadata from collection
-            let packages = await fetchSSWGPackageCollection()
+        // Step 2: Fetch rich package metadata from collection
+        let packages = await fetchSSWGPackageCollection()
 
-            // Step 3: Merge and create knowledge entries
-            var entries: [KnowledgeEntry] = []
-            for package in packages {
-                guard let url = package["url"] as? String else { continue }
+        // Guard against total failure - preserve cached data
+        guard !packages.isEmpty else {
+            logger.warning("SSWG index update failed: no packages fetched, preserving cached data")
+            return
+        }
 
-                let packageName = extractPackageName(from: url)
-                let summary = package["summary"] as? String ?? ""
-                let keywords = (package["keywords"] as? [String] ?? []).joined(separator: ", ")
-                let status = statusMap[url] ?? "unknown"
-
-                let content = buildPackageContent(
-                    name: packageName,
-                    url: url,
-                    summary: summary,
-                    keywords: keywords,
-                    status: status
-                )
-
-                let entry = KnowledgeEntry(
-                    id: "sswg-package-\(packageName.lowercased())",
-                    title: "SSWG Package: \(packageName)",
-                    content: content,
-                    layer: nil,
-                    patternIds: [],
-                    violationIds: [],
-                    hummingbirdVersionRange: ">=2.0",
-                    swiftVersionRange: ">=5.8",
-                    isTutorialPattern: false,
-                    correctionId: nil,
-                    confidence: 0.85,
-                    source: "sswg-index",
-                    lastVerifiedAt: Date()
-                )
-                entries.append(entry)
+        // Step 3: Merge and create knowledge entries
+        var entries: [KnowledgeEntry] = []
+        for package in packages {
+            guard let url = package["url"] as? String else {
+                logger.debug("Skipping SSWG package with missing URL field")
+                continue
             }
 
-            if !entries.isEmpty {
-                await store.upsertAll(entries)
-                logger.info("Updated SSWG package entries", metadata: ["count": "\(entries.count)"])
-            }
-        } catch {
-            logger.warning("Failed to update SSWG index", metadata: ["error": "\(error)"])
+            let packageName = extractPackageName(from: url)
+            let summary = package["summary"] as? String ?? ""
+            let keywords = (package["keywords"] as? [String] ?? []).joined(separator: ", ")
+            let status = statusMap[url] ?? "unknown"
+
+            let content = buildPackageContent(
+                name: packageName,
+                url: url,
+                summary: summary,
+                keywords: keywords,
+                status: status
+            )
+
+            let entry = KnowledgeEntry(
+                id: "sswg-package-\(packageName.lowercased())",
+                title: "SSWG Package: \(packageName)",
+                content: content,
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0",
+                swiftVersionRange: ">=5.8",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 0.85,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            )
+            entries.append(entry)
+        }
+
+        if !entries.isEmpty {
+            await store.upsertAll(entries)
+            logger.info("Updated SSWG package entries", metadata: ["count": "\(entries.count)"])
+        } else {
+            logger.warning("No valid SSWG packages to update, preserving cached data")
         }
     }
 
@@ -178,24 +185,36 @@ struct KnowledgeUpdateService: Service {
                 let (data, response) = try await URLSession.shared.data(from: url)
 
                 guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                    logger.debug("SSWG maturity endpoint returned non-200", metadata: [
+                    logger.warning("SSWG maturity endpoint returned non-200", metadata: [
                         "status": "\(status)",
                         "url": "\(urlString)",
                     ])
                     continue
                 }
 
-                if let urls = try? JSONSerialization.jsonObject(with: data) as? [String] {
-                    for packageUrl in urls {
-                        statusMap[packageUrl] = status
+                // Parse JSON response
+                do {
+                    if let urls = try JSONSerialization.jsonObject(with: data) as? [String] {
+                        for packageUrl in urls {
+                            statusMap[packageUrl] = status
+                        }
+                        logger.debug("Fetched SSWG maturity level", metadata: [
+                            "status": "\(status)",
+                            "count": "\(urls.count)",
+                        ])
+                    } else {
+                        logger.warning("SSWG maturity endpoint returned unexpected JSON format", metadata: [
+                            "status": "\(status)",
+                        ])
                     }
-                    logger.debug("Fetched SSWG maturity level", metadata: [
+                } catch {
+                    logger.warning("Failed to parse SSWG maturity JSON", metadata: [
                         "status": "\(status)",
-                        "count": "\(urls.count)",
+                        "error": "\(error)",
                     ])
                 }
             } catch {
-                logger.debug("Failed to fetch SSWG maturity level", metadata: [
+                logger.warning("Failed to fetch SSWG maturity level", metadata: [
                     "status": "\(status)",
                     "error": "\(error)",
                 ])
@@ -213,17 +232,26 @@ struct KnowledgeUpdateService: Service {
             let (data, response) = try await URLSession.shared.data(from: url)
 
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                logger.debug("SSWG collection endpoint returned non-200", metadata: ["url": "\(urlString)"])
+                logger.warning("SSWG collection endpoint returned non-200", metadata: ["url": "\(urlString)"])
                 return []
             }
 
-            if let collection = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let packages = collection["packages"] as? [[String: Any]] {
-                logger.debug("Fetched SSWG package collection", metadata: ["count": "\(packages.count)"])
-                return packages
+            // Parse JSON response
+            do {
+                if let collection = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let packages = collection["packages"] as? [[String: Any]] {
+                    logger.debug("Fetched SSWG package collection", metadata: ["count": "\(packages.count)"])
+                    return packages
+                } else {
+                    logger.warning("SSWG collection JSON missing 'packages' array or invalid format")
+                    return []
+                }
+            } catch {
+                logger.warning("Failed to parse SSWG collection JSON", metadata: ["error": "\(error)"])
+                return []
             }
         } catch {
-            logger.debug("Failed to fetch SSWG package collection", metadata: ["error": "\(error)"])
+            logger.warning("Failed to fetch SSWG package collection", metadata: ["error": "\(error)"])
         }
 
         return []
