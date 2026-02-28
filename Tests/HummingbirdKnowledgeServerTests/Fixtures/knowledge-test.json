@@ -1,0 +1,62 @@
+[
+  {
+    "id": "test-dispatcher-pattern",
+    "title": "Test: Route Handlers Are Dispatchers",
+    "content": "Test fixture for dispatcher pattern validation.\n\n```swift\n// ✅ Correct pattern\nrouter.get(\"/test\") { request, context in\n    try await context.dependencies.testService.execute()\n}\n```",
+    "layer": "controller",
+    "patternIds": ["dispatcher-pattern"],
+    "violationIds": [],
+    "hummingbirdVersionRange": ">=2.0.0",
+    "swiftVersionRange": ">=6.0",
+    "isTutorialPattern": false,
+    "correctionId": null,
+    "confidence": 1.0,
+    "source": "test-fixture",
+    "lastVerifiedAt": "2025-01-01T00:00:00Z"
+  },
+  {
+    "id": "test-service-layer",
+    "title": "Test: Service Layer Independence",
+    "content": "Test fixture for service layer pattern.\n\n```swift\n// ✅ Correct — no framework imports\nimport Foundation\n\nstruct TestService {\n    func execute() async throws -> String {\n        return \"test-result\"\n    }\n}\n```",
+    "layer": "service",
+    "patternIds": ["framework-agnostic-service"],
+    "violationIds": [],
+    "hummingbirdVersionRange": ">=2.0.0",
+    "swiftVersionRange": ">=6.0",
+    "isTutorialPattern": false,
+    "correctionId": null,
+    "confidence": 1.0,
+    "source": "test-fixture",
+    "lastVerifiedAt": "2025-01-01T00:00:00Z"
+  },
+  {
+    "id": "test-anti-pattern",
+    "title": "Test: Anti-Pattern Example",
+    "content": "Test fixture for anti-pattern detection.\n\n```swift\n// ❌ Wrong — business logic in handler\nrouter.post(\"/test\") { request, context in\n    let data = try await request.decode(as: TestDTO.self, context: context)\n    guard !data.name.isEmpty else { throw HTTPError(.badRequest) }\n    return data\n}\n```",
+    "layer": "controller",
+    "patternIds": [],
+    "violationIds": ["inline-logic-in-handler"],
+    "hummingbirdVersionRange": ">=2.0.0",
+    "swiftVersionRange": ">=6.0",
+    "isTutorialPattern": true,
+    "correctionId": "test-dispatcher-pattern",
+    "confidence": 0.9,
+    "source": "test-fixture",
+    "lastVerifiedAt": "2025-01-01T00:00:00Z"
+  },
+  {
+    "id": "test-middleware-pattern",
+    "title": "Test: Middleware Order Matters",
+    "content": "Test fixture for middleware patterns.\n\n```swift\n// ✅ Correct order\nrouter.add(middleware: DependencyInjectionMiddleware(dependencies: deps))\nrouter.add(middleware: RequestLoggingMiddleware())\nrouter.add(middleware: AuthMiddleware(token: token))\n```",
+    "layer": "middleware",
+    "patternIds": ["middleware-ordering"],
+    "violationIds": [],
+    "hummingbirdVersionRange": ">=2.0.0",
+    "swiftVersionRange": ">=6.0",
+    "isTutorialPattern": false,
+    "correctionId": null,
+    "confidence": 1.0,
+    "source": "test-fixture",
+    "lastVerifiedAt": "2025-01-01T00:00:00Z"
+  }
+]
