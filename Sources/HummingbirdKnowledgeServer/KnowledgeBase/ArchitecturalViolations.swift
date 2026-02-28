@@ -261,6 +261,46 @@ enum ArchitecturalViolations {
             severity: .error
         ),
 
+        ArchitecturalViolation(
+            id: "global-mutable-state",
+            pattern: #"^(public\s+|internal\s+|private\s+)?var\s+\w+\s*:\s*(?!@Sendable)[^\n]*=(?!\s*\{)"#,
+            description: "Global mutable variable declared without actor protection or @MainActor isolation. "
+                + "Global mutable state causes data races in concurrent code — "
+                + "use actors, @MainActor, or make the value immutable (let) instead.",
+            correctionId: "actor-for-shared-state",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "missing-sendable-conformance",
+            pattern: #"(struct|class|enum)\s+\w+(?!.*:\s*.*Sendable)[^{]*(:\s*[^{]*)?(?=\s*\{)"#,
+            description: "Type declaration without Sendable conformance in concurrent context. "
+                + "Types used across concurrency boundaries must conform to Sendable — "
+                + "add `: Sendable` to structs/enums/actors, or use `final class` with all immutable properties.",
+            correctionId: "sendable-types",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "task-detached-without-isolation",
+            pattern: #"Task\.detached\s*\{(?!.*@MainActor|.*actor)"#,
+            description: "Task.detached called without explicit isolation annotation. "
+                + "Detached tasks inherit no isolation and can cause data races — "
+                + "use Task { } for structured concurrency or explicitly annotate isolation with @MainActor.",
+            correctionId: "structured-concurrency",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "nonisolated-unsafe-usage",
+            pattern: #"nonisolated\s*\(unsafe\)"#,
+            description: "nonisolated(unsafe) used to bypass Swift 6 concurrency checks. "
+                + "This attribute disables safety guarantees and can cause data races — "
+                + "use proper actor isolation or Sendable conformance instead of unsafe escapes.",
+            correctionId: "actor-for-shared-state",
+            severity: .error
+        ),
+
         // ── Warning: suboptimal patterns ──────────────────────────────────────
 
         ArchitecturalViolation(
