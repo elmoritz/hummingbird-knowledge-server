@@ -82,6 +82,36 @@ enum ArchitecturalViolations {
         ),
 
         ArchitecturalViolation(
+            id: "domain-entity-across-http-boundary",
+            pattern: #"func\s+\w+\([^)]*\)\s*(async\s+)?(throws\s+)?->\s*(?!Response|some ResponseGenerator)\w+Entity"#,
+            description: "A domain entity is returned directly from a route handler. "
+                + "DTOs must be used at every HTTP boundary — domain entities must never "
+                + "cross the HTTP layer raw.",
+            correctionId: "dtos-at-boundaries",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "domain-model-array-across-http-boundary",
+            pattern: #"func\s+\w+\([^)]*\)\s*(async\s+)?(throws\s+)?->\s*\[\w+(Model|Entity)\]"#,
+            description: "An array of domain models/entities is returned directly from a route handler. "
+                + "DTOs must be used at every HTTP boundary — convert domain models to DTOs "
+                + "before returning from route handlers.",
+            correctionId: "dtos-at-boundaries",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
+            id: "domain-model-in-request-decode",
+            pattern: #"request\.decode\(as:\s*\w+(Model|Entity)\.self"#,
+            description: "Domain model or entity used in request.decode(). "
+                + "DTOs must be used at HTTP boundaries — decode to a DTO, "
+                + "then convert to domain model in the service layer.",
+            correctionId: "dtos-at-boundaries",
+            severity: .error
+        ),
+
+        ArchitecturalViolation(
             id: "business-logic-in-handler",
             pattern: #"router\.(get|post|put|delete|patch).*\{[^}]*(if\s+\w+\s*[<>=!]+|switch\s+\w+|for\s+\w+\s+in|\.calculate|\.compute|\.process(?!DTO))"#,
             description: "Business logic detected inside a route handler closure. "
