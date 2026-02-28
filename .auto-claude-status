@@ -3,7 +3,7 @@
   "spec": "003-implement-missing-mcp-resources",
   "state": "building",
   "subtasks": {
-    "completed": 1,
+    "completed": 2,
     "total": 4,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 3,
+    "number": 4,
     "started_at": "2026-02-28T13:37:47.824591"
   },
-  "last_update": "2026-02-28T13:46:39.243465"
+  "last_update": "2026-02-28T13:49:10.263271"
 }
