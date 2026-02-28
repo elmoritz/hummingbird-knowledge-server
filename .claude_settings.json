@@ -1,0 +1,39 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read(./**)",
+      "Write(./**)",
+      "Edit(./**)",
+      "Glob(./**)",
+      "Grep(./**)",
+      "Read(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/worktrees/tasks/001-comprehensive-test-suite/**)",
+      "Write(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/worktrees/tasks/001-comprehensive-test-suite/**)",
+      "Edit(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/worktrees/tasks/001-comprehensive-test-suite/**)",
+      "Glob(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/worktrees/tasks/001-comprehensive-test-suite/**)",
+      "Grep(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/worktrees/tasks/001-comprehensive-test-suite/**)",
+      "Read(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/worktrees/tasks/001-comprehensive-test-suite/.auto-claude/specs/001-comprehensive-test-suite/**)",
+      "Write(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/worktrees/tasks/001-comprehensive-test-suite/.auto-claude/specs/001-comprehensive-test-suite/**)",
+      "Edit(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/worktrees/tasks/001-comprehensive-test-suite/.auto-claude/specs/001-comprehensive-test-suite/**)",
+      "Read(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/**)",
+      "Write(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/**)",
+      "Edit(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/**)",
+      "Glob(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/**)",
+      "Grep(/Users/elmoritz/Developer/auto-claude/hummingbird-knowledge-server/.auto-claude/**)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "mcp__context7__resolve-library-id(*)",
+      "mcp__context7__query-docs(*)",
+      "mcp__graphiti-memory__search_nodes(*)",
+      "mcp__graphiti-memory__search_facts(*)",
+      "mcp__graphiti-memory__add_episode(*)",
+      "mcp__graphiti-memory__get_episodes(*)",
+      "mcp__graphiti-memory__get_entity_edge(*)"
+    ]
+  }
+}

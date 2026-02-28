@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "001-comprehensive-test-suite",
+  "state": "building",
+  "subtasks": {
+    "completed": 6,
+    "total": 13,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "MCP Tool Handler Tests",
+    "id": null,
+    "total": 3
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 8,
+    "started_at": "2026-02-28T13:21:26.108704"
+  },
+  "last_update": "2026-02-28T14:01:51.535604"
+}
