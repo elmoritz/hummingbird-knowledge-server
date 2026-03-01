@@ -1,6 +1,6 @@
 # hummingbird-knowledge-server
 
-[![CI](https://github.com/your-org/hummingbird-knowledge-server/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/hummingbird-knowledge-server/actions/workflows/ci.yml)
+[![CI](https://github.com/elmoritz/hummingbird-knowledge-server/actions/workflows/ci.yml/badge.svg)](https://github.com/elmoritz/hummingbird-knowledge-server/actions/workflows/ci.yml)
 
 An MCP (Model Context Protocol) server that gives AI assistants deep, production-accurate knowledge of [Hummingbird](https://github.com/hummingbird-project/hummingbird) and server-side Swift.
 
@@ -33,7 +33,7 @@ You can run your own local instance **and** connect to a shared hosted instance 
 ## Running Locally
 
 ```bash
-git clone https://github.com/your-org/hummingbird-knowledge-server
+git clone https://github.com/elmoritz/hummingbird-knowledge-server
 cd hummingbird-knowledge-server
 cp .env.example .env
 
@@ -139,14 +139,14 @@ The release workflow:
 1. Extracts version from the tag (e.g., `v1.2.3` → `1.2.3`)
 2. Builds multi-platform Docker images (`linux/amd64`, `linux/arm64`)
 3. Publishes to GitHub Container Registry (GHCR) with tags:
-   - `ghcr.io/your-org/hummingbird-knowledge-server:1.2.3` (full version)
-   - `ghcr.io/your-org/hummingbird-knowledge-server:1.2` (major.minor)
-   - `ghcr.io/your-org/hummingbird-knowledge-server:1` (major)
-   - `ghcr.io/your-org/hummingbird-knowledge-server:latest`
+   - `ghcr.io/elmoritz/hummingbird-knowledge-server:1.2.3` (full version)
+   - `ghcr.io/elmoritz/hummingbird-knowledge-server:1.2` (major.minor)
+   - `ghcr.io/elmoritz/hummingbird-knowledge-server:1` (major)
+   - `ghcr.io/elmoritz/hummingbird-knowledge-server:latest`
 
 Pull the latest release:
 ```bash
-docker pull ghcr.io/your-org/hummingbird-knowledge-server:latest
+docker pull ghcr.io/elmoritz/hummingbird-knowledge-server:latest
 ```
 
 ---
