@@ -140,7 +140,33 @@ enum ArchitecturalViolations {
                 + "All errors must be wrapped in AppError before propagating — "
                 + "this ensures consistent HTTP responses and prevents leaking internals.",
             correctionId: "typed-errors-app-error",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — raw third-party error thrown
+                    router.get("/users/:id") { request, context in
+                        let id = try context.parameters.require("id")
+                        guard let uuid = UUID(uuidString: id) else {
+                            throw ValidationError("Invalid UUID")  // Raw error type!
+                        }
+                        return try await context.dependencies.userService.find(id: uuid)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — wrapped in AppError
+                    router.get("/users/:id") { request, context in
+                        let id = try context.parameters.require("id")
+                        guard let uuid = UUID(uuidString: id) else {
+                            throw AppError.invalidInput(reason: "Invalid UUID format for user ID")
+                        }
+                        return try await context.dependencies.userService.find(id: uuid)
+                    }
+                    """,
+                explanation: "Raw third-party errors expose internal implementation details and can leak sensitive information "
+                    + "to clients. AppError provides a consistent error interface with proper HTTP status code mapping. "
+                    + "Wrapping errors at boundaries ensures predictable API responses and prevents internal stack traces "
+                    + "from being exposed to end users."
+            )
         ),
 
         ArchitecturalViolation(
@@ -569,7 +595,42 @@ enum ArchitecturalViolations {
                 + "Silently ignoring errors hides failures and makes debugging impossible — "
                 + "always log errors, convert them to AppError, or handle them explicitly.",
             correctionId: "typed-errors-app-error",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — error silently swallowed
+                    func fetchUserData() async {
+                        do {
+                            let data = try await externalAPI.fetch()
+                            process(data)
+                        } catch {
+                            // Empty catch — error disappears!
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — error logged and handled
+                    func fetchUserData() async throws {
+                        do {
+                            let data = try await externalAPI.fetch()
+                            process(data)
+                        } catch {
+                            logger.error("Failed to fetch user data", metadata: [
+                                "error": "\\(error)",
+                                "operation": "fetchUserData"
+                            ])
+                            throw AppError.externalServiceError(
+                                service: "externalAPI",
+                                reason: error.localizedDescription
+                            )
+                        }
+                    }
+                    """,
+                explanation: "Empty catch blocks hide errors and make production debugging impossible. When errors occur, "
+                    + "you need visibility into what went wrong. Always log errors with context (what operation failed, "
+                    + "what input caused the failure), then either re-throw as AppError or handle the error explicitly "
+                    + "with fallback logic. Silent failures lead to data inconsistency and frustrated users."
+            )
         ),
 
         ArchitecturalViolation(
@@ -579,7 +640,42 @@ enum ArchitecturalViolations {
                 + "Catching an error without logging it or wrapping it in AppError "
                 + "makes production debugging impossible — always preserve error context.",
             correctionId: "typed-errors-app-error",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — error caught but discarded
+                    func updateUser(id: String, data: UserData) async -> Bool {
+                        do {
+                            try await repository.update(id: id, data: data)
+                            return true
+                        } catch _ {
+                            return false  // Error information lost!
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — error logged and re-thrown
+                    func updateUser(id: String, data: UserData) async throws {
+                        do {
+                            try await repository.update(id: id, data: data)
+                        } catch {
+                            logger.error("Failed to update user", metadata: [
+                                "userId": "\\(id)",
+                                "error": "\\(error)",
+                                "operation": "updateUser"
+                            ])
+                            throw AppError.databaseError(
+                                operation: "update user",
+                                reason: error.localizedDescription
+                            )
+                        }
+                    }
+                    """,
+                explanation: "Catching errors without logging or re-throwing them destroys valuable debugging information. "
+                    + "When something fails in production, you need to know what failed, why it failed, and what data "
+                    + "was involved. Always log errors with structured metadata (entity IDs, operation names, input values), "
+                    + "then re-throw as AppError to preserve the error chain while providing clean error responses."
+            )
         ),
 
         ArchitecturalViolation(
@@ -589,7 +685,36 @@ enum ArchitecturalViolations {
                 + "Error messages must include context about what failed and why — "
                 + "add details like entity IDs, operation names, or input values that failed validation.",
             correctionId: "typed-errors-app-error",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — generic error with no context
+                    func deleteUser(id: String) async throws {
+                        guard let user = try await repository.find(id: id) else {
+                            throw AppError.notFound(reason: "Not found")  // Which entity? What ID?
+                        }
+                        try await repository.delete(user)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — error with full context
+                    func deleteUser(id: String) async throws {
+                        guard let user = try await repository.find(id: id) else {
+                            throw AppError.notFound(
+                                entity: "User",
+                                id: id,
+                                reason: "User with ID \\(id) does not exist"
+                            )
+                        }
+                        try await repository.delete(user)
+                    }
+                    """,
+                explanation: "Generic error messages like 'Not found' or 'Invalid input' provide no debugging context. "
+                    + "When an error occurs in production, you need to know what entity was affected, what ID was used, "
+                    + "and what operation failed. Include specific details in error messages: entity types, IDs, field names, "
+                    + "validation constraints that were violated, and the operation that was attempted. This makes logs "
+                    + "searchable and debugging possible."
+            )
         ),
 
         ArchitecturalViolation(
@@ -599,7 +724,44 @@ enum ArchitecturalViolations {
                 + "Print statements are not searchable, not structured, and disappear in production — "
                 + "use Logger with proper log levels and context instead.",
             correctionId: "structured-logging",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — print() for error logging
+                    func processPayment(amount: Decimal) async throws {
+                        do {
+                            try await paymentGateway.charge(amount: amount)
+                        } catch {
+                            print("Payment failed: \\(error)")  // Not structured, not searchable!
+                            throw error
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — structured logging with Logger
+                    func processPayment(amount: Decimal) async throws {
+                        do {
+                            try await paymentGateway.charge(amount: amount)
+                        } catch {
+                            logger.error("Payment processing failed", metadata: [
+                                "amount": "\\(amount)",
+                                "error": "\\(error)",
+                                "errorType": "\\(type(of: error))",
+                                "operation": "processPayment"
+                            ])
+                            throw AppError.paymentError(
+                                amount: amount,
+                                reason: error.localizedDescription
+                            )
+                        }
+                    }
+                    """,
+                explanation: "print() statements are development tools that don't belong in production code. They aren't "
+                    + "captured by logging systems, can't be filtered by severity, don't support structured metadata, "
+                    + "and disappear in production environments. Use Logger with proper log levels (error, warning, info, debug) "
+                    + "and structured metadata for all production logging. This makes logs searchable, filterable, and "
+                    + "integrates with monitoring systems for alerting and debugging."
+            )
         ),
 
         ArchitecturalViolation(
@@ -609,7 +771,44 @@ enum ArchitecturalViolations {
                 + "Raw errors from libraries leak implementation details to clients — "
                 + "wrap all external errors in AppError with context about the operation that failed.",
             correctionId: "typed-errors-app-error",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — raw database error re-thrown
+                    func findUser(id: String) async throws -> User {
+                        do {
+                            return try await repository.find(id: id)
+                        } catch let dbError {
+                            throw dbError  // PostgresError leaks to handler!
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — wrapped in AppError
+                    func findUser(id: String) async throws -> User {
+                        do {
+                            return try await repository.find(id: id)
+                        } catch let dbError as DatabaseError {
+                            logger.error("Database query failed", metadata: [
+                                "userId": "\\(id)",
+                                "error": "\\(dbError)",
+                                "operation": "findUser"
+                            ])
+                            throw AppError.databaseError(
+                                operation: "find user by ID",
+                                reason: dbError.localizedDescription
+                            )
+                        } catch {
+                            throw AppError.internalError(reason: error.localizedDescription)
+                        }
+                    }
+                    """,
+                explanation: "Re-throwing third-party errors directly exposes internal implementation details (database types, "
+                    + "connection strings, table names) to clients and makes it impossible to change underlying libraries "
+                    + "without breaking error handling. Wrap all external errors in AppError at layer boundaries, adding "
+                    + "context about what operation was attempted. This provides consistent error responses, prevents "
+                    + "information leakage, and allows you to change implementations without affecting error contracts."
+            )
         ),
 
         ArchitecturalViolation(
@@ -619,7 +818,37 @@ enum ArchitecturalViolations {
                 + "Every HTTP response must explicitly set a status code — "
                 + "implicit defaults hide intent and make API behavior unclear to readers.",
             correctionId: "explicit-http-status-codes",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — no explicit status code
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+                        let user = try await context.dependencies.userService.create(dto)
+                        return Response(body: .init(data: try JSONEncoder().encode(user)))
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — explicit status code
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+                        let user = try await context.dependencies.userService.create(dto)
+                        return CreateUserResponse(user)  // ResponseCodable handles status
+                    }
+
+                    // Or if using Response directly:
+                    router.delete("/users/:id") { request, context in
+                        let id = try context.parameters.require("id")
+                        try await context.dependencies.userService.delete(id: id)
+                        return Response(status: .noContent)  // Explicit .noContent
+                    }
+                    """,
+                explanation: "Omitting status codes relies on implicit defaults (usually 200 OK), which hides the intent "
+                    + "of the response and makes the API contract unclear. HTTP status codes communicate semantic meaning: "
+                    + "201 Created for new resources, 204 No Content for successful deletes, 404 Not Found for missing "
+                    + "resources. Always specify status codes explicitly, either through ResponseCodable DTOs (which "
+                    + "set appropriate defaults) or Response(status:) for explicit control."
+            )
         ),
 
         ArchitecturalViolation(
@@ -675,7 +904,44 @@ enum ArchitecturalViolations {
                 + "HTTP responses must explicitly declare their media type — "
                 + "add .withHeader(.contentType, \"application/json\") or use response encoding middleware.",
             correctionId: "explicit-content-type-headers",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — no Content-Type header
+                    router.get("/health") { request, context in
+                        let json = "{\\"status\\":\\"healthy\\"}"
+                        return Response(
+                            status: .ok,
+                            body: .init(byteBuffer: ByteBuffer(string: json))
+                        )  // Missing Content-Type!
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — explicit Content-Type with DTO
+                    router.get("/health") { request, context in
+                        return HealthResponse(status: "healthy")
+                    }
+
+                    struct HealthResponse: Codable, ResponseCodable {
+                        let status: String
+                    }
+
+                    // Or if using Response directly:
+                    router.get("/health") { request, context in
+                        let json = "{\\"status\\":\\"healthy\\"}"
+                        return Response(
+                            status: .ok,
+                            headers: [.contentType: "application/json"],
+                            body: .init(byteBuffer: ByteBuffer(string: json))
+                        )
+                    }
+                    """,
+                explanation: "HTTP responses without Content-Type headers leave clients guessing about how to parse the body. "
+                    + "Browsers and API clients use Content-Type to determine if they're receiving JSON, HTML, plain text, "
+                    + "or binary data. Always set Content-Type explicitly. The cleanest approach is using ResponseCodable "
+                    + "DTOs which automatically set 'application/json' and handle encoding. If using Response directly, "
+                    + "add headers: [.contentType: \"application/json\"] to declare the media type."
+            )
         ),
 
         ArchitecturalViolation(

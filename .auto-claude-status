@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "015-streamable-http-transport-support",
+  "spec": "011-auto-fix-suggestions-for-violations",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 11,
+    "completed": 3,
+    "total": 9,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Integration and Testing",
+    "current": "Add Fix Suggestions to Violations",
     "id": null,
-    "total": 3
+    "total": 9
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 11,
-    "started_at": "2026-03-01T19:53:06.809413"
+    "number": 5,
+    "started_at": "2026-03-01T21:39:35.041976"
   },
-  "last_update": "2026-03-01T20:19:30.358468"
+  "last_update": "2026-03-01T21:52:36.350121"
 }
