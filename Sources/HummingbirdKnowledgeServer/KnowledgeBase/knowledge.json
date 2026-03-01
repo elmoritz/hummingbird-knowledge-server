@@ -298,5 +298,20 @@
     "confidence": 0.95,
     "source": "embedded",
     "lastVerifiedAt": "2026-02-28T00:00:00Z"
+  },
+  {
+    "id": "router-groups-and-prefixes",
+    "title": "Router Groups and Route Prefixes",
+    "content": "Hummingbird 2.x routers support grouping routes with shared prefixes and middleware. Use `router.group()` to organize related endpoints logically, apply scoped middleware, and avoid repetitive path segments. Groups can be nested for hierarchical API structures.\n\n```swift\n// ✅ Correct — using router groups with prefixes\nlet apiV1 = router.group(\"/api/v1\")\n\napiV1.group(\"/users\")\n    .get { request, context in\n        // GET /api/v1/users\n        return try await context.dependencies.userService.list()\n    }\n    .get(\"/:id\") { request, context in\n        // GET /api/v1/users/:id\n        let id = try context.parameters.require(\"id\")\n        return try await context.dependencies.userService.find(id: id)\n    }\n    .post { request, context in\n        // POST /api/v1/users\n        let dto = try await request.decode(as: CreateUserRequest.self, context: context)\n        return try await context.dependencies.userService.create(dto)\n    }\n\napiV1.group(\"/posts\")\n    .get { request, context in\n        // GET /api/v1/posts\n        return try await context.dependencies.postService.list()\n    }\n    .get(\"/:id\") { request, context in\n        // GET /api/v1/posts/:id\n        let id = try context.parameters.require(\"id\")\n        return try await context.dependencies.postService.find(id: id)\n    }\n\n// ✅ Correct — applying middleware to a group\nlet authenticated = router.group()\n    .add(middleware: AuthMiddleware())\n\nauthenticated.group(\"/admin\")\n    .get(\"/dashboard\") { request, context in\n        // Requires authentication via AuthMiddleware\n        return try await context.dependencies.adminService.getDashboard()\n    }\n    .delete(\"/users/:id\") { request, context in\n        let id = try context.parameters.require(\"id\")\n        return try await context.dependencies.userService.delete(id: id)\n    }\n\n// ❌ Wrong — repeating prefixes in every route\nrouter.get(\"/api/v1/users\") { request, context in\n    return try await context.dependencies.userService.list()\n}\n\nrouter.get(\"/api/v1/users/:id\") { request, context in\n    let id = try context.parameters.require(\"id\")\n    return try await context.dependencies.userService.find(id: id)\n}\n\nrouter.get(\"/api/v1/posts\") { request, context in\n    return try await context.dependencies.postService.list()\n}\n\nrouter.get(\"/api/v1/posts/:id\") { request, context in\n    let id = try context.parameters.require(\"id\")\n    return try await context.dependencies.postService.find(id: id)\n}\n// ⚠️ Repetitive, hard to refactor, middleware must be added to each route\n\n// ❌ Wrong — applying middleware to individual routes instead of groups\nrouter.get(\"/admin/dashboard\") { request, context in\n    // Must manually check auth in every handler\n    guard try await context.dependencies.authService.isAuthenticated(request) else {\n        throw HTTPError(.unauthorized)\n    }\n    return try await context.dependencies.adminService.getDashboard()\n}\n```\n\nBest practices:\n- Group routes by resource (`/users`, `/posts`, `/comments`)\n- Use versioned groups (`/api/v1`, `/api/v2`) for API versioning\n- Apply middleware at the group level, not per route\n- Nest groups for hierarchical structures (`/api/v1/admin/users`)\n- Keep route definitions close to related routes for readability",
+    "layer": "controller",
+    "patternIds": ["router-groups", "route-organization", "middleware-scoping"],
+    "violationIds": ["repeated-route-prefixes", "middleware-duplication"],
+    "hummingbirdVersionRange": ">=2.0.0",
+    "swiftVersionRange": ">=6.0",
+    "isTutorialPattern": false,
+    "correctionId": null,
+    "confidence": 1.0,
+    "source": "embedded",
+    "lastVerifiedAt": "2026-03-01T00:00:00Z"
   }
 ]
