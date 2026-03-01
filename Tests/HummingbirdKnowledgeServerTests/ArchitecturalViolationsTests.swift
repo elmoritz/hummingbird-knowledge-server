@@ -4,6 +4,7 @@
 // rules with known-good and known-bad code samples.
 
 import Foundation
+import MCP
 import XCTest
 
 @testable import HummingbirdKnowledgeServer
@@ -435,5 +436,102 @@ final class ArchitecturalViolationsTests: XCTestCase {
                 )
             }
         }
+    }
+
+    // MARK: - Fix Suggestions
+
+    func testAllViolationsHaveFixSuggestions() {
+        XCTAssertEqual(ArchitecturalViolations.all.count, 38, "Should have exactly 38 violations")
+
+        for violation in ArchitecturalViolations.all {
+            XCTAssertNotNil(
+                violation.fixSuggestion,
+                "Violation '\(violation.id)' must have a fix suggestion"
+            )
+        }
+    }
+
+    func testFixSuggestionsHaveBeforeAfterCode() {
+        for violation in ArchitecturalViolations.all {
+            guard let fix = violation.fixSuggestion else {
+                XCTFail("Violation '\(violation.id)' is missing a fix suggestion")
+                continue
+            }
+
+            XCTAssertFalse(
+                fix.before.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "Violation '\(violation.id)' fix suggestion must have non-empty 'before' code"
+            )
+
+            XCTAssertFalse(
+                fix.after.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "Violation '\(violation.id)' fix suggestion must have non-empty 'after' code"
+            )
+
+            XCTAssertFalse(
+                fix.explanation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "Violation '\(violation.id)' fix suggestion must have non-empty 'explanation'"
+            )
+
+            // Verify before/after examples are different
+            XCTAssertNotEqual(
+                fix.before.trimmingCharacters(in: .whitespacesAndNewlines),
+                fix.after.trimmingCharacters(in: .whitespacesAndNewlines),
+                "Violation '\(violation.id)' fix suggestion 'before' and 'after' must be different"
+            )
+
+            // Verify examples contain actual code (basic sanity check)
+            XCTAssertTrue(
+                fix.before.contains("{") || fix.before.contains("(") || fix.before.contains("import"),
+                "Violation '\(violation.id)' fix suggestion 'before' should look like code"
+            )
+
+            XCTAssertTrue(
+                fix.after.contains("{") || fix.after.contains("(") || fix.after.contains("import"),
+                "Violation '\(violation.id)' fix suggestion 'after' should look like code"
+            )
+        }
+    }
+
+    func testCheckArchitectureToolIncludesFixSuggestions() async {
+        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let tool = CheckArchitectureTool(store: store)
+
+        let codeWithViolation = """
+        router.post("/users") { request, context in
+            let service = UserService(context: context)
+            return try await service.create(request)
+        }
+        """
+
+        let arguments: [String: Value] = [
+            "code": .string(codeWithViolation)
+        ]
+
+        let result = try! await tool.handle(arguments)
+
+        // Extract the text content from the result
+        guard case .text(let resultText) = result.content.first else {
+            XCTFail("Expected text content in result")
+            return
+        }
+
+        // Should detect the violation
+        XCTAssertTrue(
+            resultText.contains("service-construction-in-handler"),
+            "Tool should detect service-construction-in-handler violation"
+        )
+
+        // Should include fix information from the knowledge base entry
+        XCTAssertTrue(
+            resultText.contains("→ Fix:") || resultText.contains("Correction"),
+            "Tool response should include fix guidance"
+        )
+
+        // Should indicate critical severity
+        XCTAssertTrue(
+            resultText.contains("CRITICAL") || resultText.contains("🔴"),
+            "Tool should indicate critical severity"
+        )
     }
 }

@@ -18,7 +18,7 @@ import Logging
 struct MCPServerService: Service {
 
     let server: Server
-    let transport: HummingbirdSSETransport
+    let transport: HummingbirdTransport
     let logger: Logger
 
     func run() async throws {

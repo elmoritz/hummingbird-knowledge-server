@@ -24,7 +24,7 @@ import NIOCore
 ///   body. The MCP SDK reads these from `receive()` and processes them.
 /// - **Responses**: The MCP SDK calls `send(_:)` with response data, which is
 ///   broadcast to all currently-connected SSE clients.
-public actor HummingbirdSSETransport: Transport {
+public actor HummingbirdSSETransport: HummingbirdTransport {
 
     // MARK: - Transport protocol
 

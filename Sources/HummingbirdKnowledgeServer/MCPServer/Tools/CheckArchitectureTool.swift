@@ -84,8 +84,11 @@ struct CheckArchitectureTool: ToolHandler {
             lines.append("   \(violation.description)")
 
             if let correction = await store.entry(for: violation.correctionId) {
-                lines.append("   → Correction: \(correction.title) (id: \(violation.correctionId))")
-                lines.append("     Use tool: explain_pattern with pattern_id: \"\(violation.correctionId)\"")
+                lines.append("   → Fix: \(correction.title)")
+                lines.append("")
+                lines.append("   \(correction.content)")
+                lines.append("")
+                lines.append("   (pattern_id: \(violation.correctionId))")
             } else {
                 lines.append("   → Correction ID: \(violation.correctionId)")
             }

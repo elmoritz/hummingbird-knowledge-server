@@ -13,6 +13,7 @@
 import Hummingbird
 import MCP
 import Logging
+import ServiceLifecycle
 
 func buildApplication(
     configuration: AppConfiguration
@@ -31,31 +32,65 @@ func buildApplication(
     let entryCount = await knowledgeStore.count
     logger.info("Knowledge base loaded", metadata: ["entries": "\(entryCount)"])
 
-    // ── MCP Server ────────────────────────────────────────────────────────────
-    let mcpServer = Server(
-        name: "hummingbird-knowledge-server",
-        version: "0.1.0",
-        capabilities: .init(
-            prompts: .init(listChanged: false),
-            resources: .init(subscribe: false, listChanged: true),
-            tools: .init(listChanged: true)
+    // ── MCP Server(s) ─────────────────────────────────────────────────────────
+    // Create separate server instances for each transport when "both" is configured.
+    // Each server has its own handlers but shares the same knowledge store.
+    func createMCPServer() async -> Server {
+        let server = Server(
+            name: "hummingbird-knowledge-server",
+            version: "0.1.0",
+            capabilities: .init(
+                prompts: .init(listChanged: false),
+                resources: .init(subscribe: false, listChanged: true),
+                tools: .init(listChanged: true)
+            )
         )
-    )
+        await registerTools(on: server, knowledgeStore: knowledgeStore)
+        await registerResources(on: server, knowledgeStore: knowledgeStore)
+        await registerPrompts(on: server)
+        return server
+    }
 
-    // Register handlers before start() is called — order does not matter here
-    await registerTools(on: mcpServer, knowledgeStore: knowledgeStore)
-    await registerResources(on: mcpServer, knowledgeStore: knowledgeStore)
-    await registerPrompts(on: mcpServer)
+    let mcpServer = await createMCPServer()
 
-    // ── SSE Transport ─────────────────────────────────────────────────────────
-    let transport = HummingbirdSSETransport(
-        logger: Logger(label: "com.hummingbird-knowledge-server.transport")
-    )
+    // ── Transport(s) ──────────────────────────────────────────────────────────
+    // Instantiate transport(s) based on configuration.
+    // In "both" mode, both transports are created and run concurrently.
+    let sseTransport: HummingbirdSSETransport?
+    let httpTransport: HummingbirdHTTPTransport?
+
+    if configuration.transport.supportsSSE {
+        sseTransport = HummingbirdSSETransport(
+            logger: Logger(label: "com.hummingbird-knowledge-server.transport.sse")
+        )
+        logger.info("SSE transport enabled")
+    } else {
+        sseTransport = nil
+    }
+
+    if configuration.transport.supportsHTTP {
+        httpTransport = HummingbirdHTTPTransport(
+            logger: Logger(label: "com.hummingbird-knowledge-server.transport.http")
+        )
+        logger.info("HTTP transport enabled")
+    } else {
+        httpTransport = nil
+    }
+
+    // Primary transport for dependencies (SSE if available, otherwise HTTP)
+    let primaryTransport: HummingbirdTransport
+    if let sse = sseTransport {
+        primaryTransport = sse
+    } else if let http = httpTransport {
+        primaryTransport = http
+    } else {
+        throw AppError.noTransportConfigured
+    }
 
     // ── Dependencies ──────────────────────────────────────────────────────────
     let dependencies = AppDependencies(
         mcpServer: mcpServer,
-        transport: transport,
+        transport: primaryTransport,
         knowledgeStore: knowledgeStore
     )
 
@@ -98,12 +133,33 @@ func buildApplication(
     )
 
     // Background services run concurrently with the HTTP server
-    app.addServices(
-        MCPServerService(
-            server: mcpServer,
-            transport: transport,
-            logger: Logger(label: "com.hummingbird-knowledge-server.mcp")
-        ),
+    // Register MCP server service(s) for each enabled transport.
+    // When "both" is configured, each transport gets its own MCP Server instance.
+    var services: [any Service] = []
+
+    if let sse = sseTransport {
+        let sseServer = configuration.transport == .both ? await createMCPServer() : mcpServer
+        services.append(
+            MCPServerService(
+                server: sseServer,
+                transport: sse,
+                logger: Logger(label: "com.hummingbird-knowledge-server.mcp.sse")
+            )
+        )
+    }
+
+    if let http = httpTransport {
+        let httpServer = configuration.transport == .both ? await createMCPServer() : mcpServer
+        services.append(
+            MCPServerService(
+                server: httpServer,
+                transport: http,
+                logger: Logger(label: "com.hummingbird-knowledge-server.mcp.http")
+            )
+        )
+    }
+
+    services.append(
         KnowledgeUpdateService(
             store: knowledgeStore,
             githubToken: configuration.githubToken,
@@ -112,12 +168,15 @@ func buildApplication(
         )
     )
 
+    app.addServices(services)
+
     logger.info(
         "Application built",
         metadata: [
             "host": "\(configuration.host)",
             "port": "\(configuration.port)",
             "mode": "\(configuration.isHosted ? "hosted" : "local")",
+            "transport": "\(configuration.transport)",
         ]
     )
 
