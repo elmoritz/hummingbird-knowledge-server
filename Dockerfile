@@ -28,11 +28,13 @@ FROM ubuntu:22.04
 # Install only the runtime libraries the binary actually links against.
 # libcurl4 and libxml2 are pulled in by Foundation on Linux.
 # ca-certificates is required for HTTPS calls to GitHub API and SSWG index.
+# curl is needed for the health check.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libcurl4 \
         libxml2 \
         ca-certificates \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Run as a non-root user — required for most production environments
@@ -40,10 +42,13 @@ RUN useradd --system --create-home --shell /bin/false appuser
 USER appuser
 WORKDIR /home/appuser
 
-# Copy only the compiled binary from the build stage
+# Copy the compiled binary and resource bundle from the build stage
 COPY --from=builder \
     /app/.build/release/HummingbirdKnowledgeServer \
     /usr/local/bin/HummingbirdKnowledgeServer
+COPY --from=builder \
+    /app/.build/release/hummingbird-knowledge-server_HummingbirdKnowledgeServer.resources \
+    /usr/local/bin/hummingbird-knowledge-server_HummingbirdKnowledgeServer.resources
 
 # Expose the default port — overridable via PORT environment variable
 EXPOSE 8080
