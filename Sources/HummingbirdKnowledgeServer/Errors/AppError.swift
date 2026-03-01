@@ -12,6 +12,7 @@ enum AppError: Error, CustomStringConvertible, Sendable {
     case internalError(reason: String)
     case resourceNotFound(uri: String)
     case promptNotFound(name: String)
+    case noTransportConfigured
 
     var description: String {
         switch self {
@@ -27,6 +28,8 @@ enum AppError: Error, CustomStringConvertible, Sendable {
             return "Resource not found: \(uri)"
         case .promptNotFound(let name):
             return "Prompt not found: \(name)"
+        case .noTransportConfigured:
+            return "No MCP transport is configured — TRANSPORT must be set to 'sse', 'http', or 'both'"
         }
     }
 }
