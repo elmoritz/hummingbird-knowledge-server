@@ -1,6 +1,6 @@
 # Knowledge Base Coverage Checklist
 
-[← Current Coverage Analysis](current-coverage-analysis.md) | [Home](index.md)
+[← Current Coverage Analysis](current-coverage-analysis.md) | [Home](index.md) | [Next: Gap Analysis Report →](gap-analysis-report.md)
 
 ---
 
@@ -9,6 +9,9 @@ This checklist tracks knowledge base coverage of Hummingbird 2.x APIs and patter
 **Last Updated:** 2026-03-01
 **Current Entry Count:** 18
 **Target Entry Count:** 40-50
+**Identified Gaps:** 35 (see [Gap Analysis Report](gap-analysis-report.md))
+
+> 📊 **Gap Analysis Complete:** A comprehensive [Gap Analysis Report](gap-analysis-report.md) has identified **35 missing API areas** (10 critical, 15 high, 10 medium priority) across 9 categories. The report provides detailed gap descriptions, code examples, pitfalls, and implementation priorities.
 
 **Coverage Status Legend:**
 - ✅ **Covered** — Comprehensive knowledge entry exists
@@ -22,36 +25,36 @@ This checklist tracks knowledge base coverage of Hummingbird 2.x APIs and patter
 
 ### 1.1 Application & Router
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| Application setup | ⚠️ | Implicit in examples, not dedicated entry | — |
-| Router basics | ⚠️ | Covered in handler patterns | `route-handler-dispatcher-only` |
-| Router groups | ❌ | API versioning, path prefixes | — |
-| Route parameters | ⚠️ | Mentioned in validation patterns | `request-validation-via-dto` |
-| Wildcard routes | ❌ | Catch-all patterns | — |
-| Route priority | ❌ | Static vs dynamic route matching | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| Application setup | ⚠️ | Implicit in examples, not dedicated entry | — | GAP-034 🔴 |
+| Router basics | ⚠️ | Covered in handler patterns | `route-handler-dispatcher-only` | — |
+| Router groups | ❌ | API versioning, path prefixes | — | GAP-001 🔴 |
+| Route parameters | ⚠️ | Mentioned in validation patterns | `request-validation-via-dto` | GAP-003 🔴 |
+| Wildcard routes | ❌ | Catch-all patterns | — | GAP-002 🔴 |
+| Route priority | ❌ | Static vs dynamic route matching | — | GAP-004 🟡 |
 
 ### 1.2 Request Handling
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| Request body decoding | ⚠️ | Covered via DTOs | `dtos-at-boundaries` |
-| Request body streaming | ❌ | Large uploads, streaming data | — |
-| Query parameters | ⚠️ | Validation covered | `request-validation-via-dto` |
-| Headers | ⚠️ | Content-Type covered | `explicit-content-type-headers` |
-| Multipart form data | ❌ | File uploads | — |
-| URI parsing | ❌ | Path/query manipulation | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| Request body decoding | ⚠️ | Covered via DTOs | `dtos-at-boundaries` | — |
+| Request body streaming | ❌ | Large uploads, streaming data | — | GAP-008 🔴 |
+| Query parameters | ⚠️ | Validation covered | `request-validation-via-dto` | GAP-005 🟡 |
+| Headers | ⚠️ | Content-Type covered | `explicit-content-type-headers` | GAP-011 🟡 |
+| Multipart form data | ❌ | File uploads | — | GAP-007 🟢 |
+| URI parsing | ❌ | Path/query manipulation | — | GAP-006 🟢 |
 
 ### 1.3 Response Handling
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| Response status codes | ✅ | Comprehensive | `explicit-http-status-codes` |
-| Response headers | ✅ | Content-Type covered | `explicit-content-type-headers` |
-| Response body types | ❌ | ByteBuffer, AsyncSequence, etc. | — |
-| Response streaming | ❌ | Large downloads, SSE | — |
-| EditedResponse | ⚠️ | Mentioned in examples | — |
-| ResponseEncoder | ❌ | Custom encoding | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| Response status codes | ✅ | Comprehensive | `explicit-http-status-codes` | — |
+| Response headers | ✅ | Content-Type covered | `explicit-content-type-headers` | — |
+| Response body types | ❌ | ByteBuffer, AsyncSequence, etc. | — | GAP-009 🟡 |
+| Response streaming | ❌ | Large downloads, SSE | — | GAP-010 🟡 |
+| EditedResponse | ⚠️ | Mentioned in examples | — | GAP-009 🟡 |
+| ResponseEncoder | ❌ | Custom encoding | — | GAP-012 🟢 |
 
 ---
 
@@ -59,22 +62,22 @@ This checklist tracks knowledge base coverage of Hummingbird 2.x APIs and patter
 
 ### 2.1 Core Middleware Patterns
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| RouterMiddleware protocol | ✅ | Hummingbird 2.x pattern | `router-middleware-pattern` |
-| Middleware composition | ⚠️ | Ordering, chaining | `middleware-chain` (pattern ID) |
-| Error handling middleware | ❌ | Catch and transform errors | — |
-| Request logging middleware | ❌ | Observability | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| RouterMiddleware protocol | ✅ | Hummingbird 2.x pattern | `router-middleware-pattern` | — |
+| Middleware composition | ⚠️ | Ordering, chaining | `middleware-chain` (pattern ID) | GAP-014 🟡 |
+| Error handling middleware | ❌ | Catch and transform errors | — | GAP-016 🟡 |
+| Request logging middleware | ❌ | Observability | — | GAP-015 🟡 |
 
 ### 2.2 Common Middleware
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| CORS middleware | ❌ | Cross-origin requests | — |
-| Rate limiting | ❌ | Throttling, quotas | — |
-| Request ID injection | ❌ | Distributed tracing | — |
-| Compression middleware | ❌ | Response compression | — |
-| Timeout middleware | ❌ | Request deadlines | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| CORS middleware | ❌ | Cross-origin requests | — | GAP-015 🟡 |
+| Rate limiting | ❌ | Throttling, quotas | — | GAP-017 🟢 |
+| Request ID injection | ❌ | Distributed tracing | — | GAP-018 🟢 |
+| Compression middleware | ❌ | Response compression | — | — |
+| Timeout middleware | ❌ | Request deadlines | — | — |
 
 ---
 
@@ -94,22 +97,23 @@ This checklist tracks knowledge base coverage of Hummingbird 2.x APIs and patter
 
 ### 4.1 Authentication
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| hummingbird-auth basics | ❌ | Core auth patterns | — |
-| JWT authentication | ❌ | Token validation | — |
-| Session-based auth | ❌ | Session management | — |
-| API key authentication | ❌ | Key validation | — |
-| OAuth2 integration | ❌ | Third-party auth | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| hummingbird-auth basics | ❌ | Core auth patterns | — | — |
+| JWT authentication | ❌ | Token validation | — | GAP-024 🟡 |
+| Session-based auth | ❌ | Session management | — | — |
+| API key authentication | ❌ | Key validation | — | — |
+| Bcrypt password hashing | ❌ | HummingbirdBcrypt | — | GAP-023 🟡 |
+| OAuth2 integration | ❌ | Third-party auth | — | — |
 
 ### 4.2 Authorization
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| Authorization middleware | ❌ | Permission checks | — |
-| Role-based access control (RBAC) | ❌ | Role checking | — |
-| Permission checking in services | ❌ | Service-layer authz | — |
-| User context injection | ❌ | Authenticated user in context | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| Authorization middleware | ❌ | Permission checks | — | GAP-025 🟢 |
+| Role-based access control (RBAC) | ❌ | Role checking | — | GAP-025 🟢 |
+| Permission checking in services | ❌ | Service-layer authz | — | — |
+| User context injection | ❌ | Authenticated user in context | — | GAP-024 🟡 |
 
 ---
 
@@ -117,47 +121,47 @@ This checklist tracks knowledge base coverage of Hummingbird 2.x APIs and patter
 
 ### 5.1 Repository Layer
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| Repository protocol pattern | ❌ | **Critical gap** | — |
-| PostgresNIO integration | ❌ | Connection setup | — |
-| Connection pooling | ❌ | PostgresConnectionSource | — |
-| Transaction management | ❌ | Transaction boundaries | — |
-| Query patterns | ❌ | Queries, prepared statements | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| Repository protocol pattern | ❌ | **Critical gap** | — | — |
+| PostgresNIO integration | ❌ | Connection setup | — | GAP-019 🔴 |
+| Connection pooling | ❌ | PostgresConnectionSource | — | GAP-020 🔴 |
+| Transaction management | ❌ | Transaction boundaries | — | GAP-021 🟡 |
+| Query patterns | ❌ | Queries, prepared statements | — | GAP-019 🔴 |
 
 ### 5.2 Database Best Practices
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| N+1 query prevention | ❌ | Query optimization | — |
-| Migration patterns | ❌ | Schema evolution | — |
-| Database error handling | ❌ | Connection errors, timeouts | — |
-| Async query execution | ⚠️ | Non-blocking I/O covered | `non-blocking-io` |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| N+1 query prevention | ❌ | Query optimization | — | GAP-022 🟢 |
+| Migration patterns | ❌ | Schema evolution | — | — |
+| Database error handling | ❌ | Connection errors, timeouts | — | — |
+| Async query execution | ⚠️ | Non-blocking I/O covered | `non-blocking-io` | — |
 
 ---
 
 ## 6. WebSocket (hummingbird-websocket)
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| WebSocket upgrade | ❌ | **Required for spec** | — |
-| WebSocket handler | ❌ | Message handling | — |
-| Actor-based connection state | ❌ | State management | — |
-| Broadcasting to clients | ❌ | Multi-client patterns | — |
-| Graceful disconnect | ❌ | Cleanup on disconnect | — |
-| WebSocket authentication | ❌ | Auth over WebSocket | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| WebSocket upgrade | ❌ | **Required for spec** | — | GAP-026 🔴 |
+| WebSocket handler | ❌ | Message handling | — | GAP-026 🔴 |
+| Actor-based connection state | ❌ | State management | — | GAP-027 🟡 |
+| Broadcasting to clients | ❌ | Multi-client patterns | — | GAP-027 🟡 |
+| Graceful disconnect | ❌ | Cleanup on disconnect | — | GAP-027 🟡 |
+| WebSocket authentication | ❌ | Auth over WebSocket | — | GAP-028 🟢 |
 
 ---
 
 ## 7. Background Jobs (hummingbird-jobs)
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| Job queue setup | ❌ | **Required for spec** | — |
-| Job handlers | ❌ | Job processing | — |
-| Job scheduling | ❌ | Cron, delayed jobs | — |
-| Retry logic | ❌ | Failed job handling | — |
-| Job persistence | ❌ | PostgreSQL, Redis backends | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| Job queue setup | ❌ | **Required for spec** | — | GAP-029 🔴 |
+| Job handlers | ❌ | Job processing | — | GAP-029 🔴 |
+| Job scheduling | ❌ | Cron, delayed jobs | — | GAP-031 🟢 |
+| Retry logic | ❌ | Failed job handling | — | GAP-030 🟡 |
+| Job persistence | ❌ | PostgreSQL, Redis backends | — | — |
 
 ---
 
@@ -176,23 +180,23 @@ This checklist tracks knowledge base coverage of Hummingbird 2.x APIs and patter
 
 ### 9.1 Testing Strategies
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| Unit testing services | ❌ | **Critical gap** | — |
-| Integration testing | ❌ | **Critical gap** | — |
-| Testing with test client | ❌ | .router vs .live | — |
-| Mocking dependencies | ❌ | Test doubles | — |
-| Testing middleware | ❌ | Middleware tests | — |
-| Testing async code | ❌ | Async test patterns | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| Unit testing services | ❌ | **Critical gap** | — | — |
+| Integration testing | ❌ | **Critical gap** | — | GAP-032 🔴 |
+| Testing with test client | ❌ | .router vs .live | — | GAP-032 🔴 |
+| Mocking dependencies | ❌ | Test doubles | — | — |
+| Testing middleware | ❌ | Middleware tests | — | — |
+| Testing async code | ❌ | Async test patterns | — | GAP-032 🔴 |
 
 ### 9.2 Test Infrastructure
 
-| API/Pattern | Status | Notes | Entry ID(s) |
-|------------|--------|-------|-------------|
-| Test fixtures | ❌ | Data setup | — |
-| Test containers | ❌ | PostgreSQL, Redis in tests | — |
-| In-memory repositories | ❌ | Fast test doubles | — |
-| Test app building | ❌ | DI for tests | — |
+| API/Pattern | Status | Notes | Entry ID(s) | Gap Ref |
+|------------|--------|-------|-------------|---------|
+| Test fixtures | ❌ | Data setup | — | — |
+| Test containers | ❌ | PostgreSQL, Redis in tests | — | — |
+| In-memory repositories | ❌ | Fast test doubles | — | GAP-033 🟡 |
+| Test app building | ❌ | DI for tests | — | — |
 
 ---
 
@@ -326,11 +330,16 @@ This checklist tracks knowledge base coverage of Hummingbird 2.x APIs and patter
 ## Priority Expansion Areas
 
 ### Phase 1: Critical Gaps (High Priority)
-1. **Repository Layer** — 0% coverage, essential for production apps
-2. **Testing Strategies** — 0% coverage, essential for quality
-3. **WebSocket** — 0% coverage, required in acceptance criteria
-4. **Background Jobs** — 0% coverage, required in acceptance criteria
-5. **Deployment/Health Checks** — 0% coverage, required in acceptance criteria
+See [Gap Analysis Report](gap-analysis-report.md) for detailed breakdown of **35 identified gaps** with priorities and implementation order.
+
+**Critical (🔴) Gaps by Category:**
+1. **Routing** — Router groups, wildcard routes, parameter extraction
+2. **Request/Response** — Request body streaming
+3. **Database** — PostgresNIO query patterns, connection pooling
+4. **WebSocket** — Upgrade pattern, handlers (required in spec)
+5. **Background Jobs** — Queue setup, handlers (required in spec)
+6. **Testing** — HummingbirdTesting patterns
+7. **Application Setup** — Composition root pattern
 
 ### Phase 2: Production Essentials (Medium Priority)
 6. **Authentication & Authorization** — 0% coverage, common requirement
@@ -362,6 +371,8 @@ This checklist tracks knowledge base coverage of Hummingbird 2.x APIs and patter
 *Last updated: 2026-03-01*
 *Covers: Hummingbird 2.x · Swift 6.0 · MCP Spec 2025-06-18 · hummingbird-knowledge-server v0.1.0*
 
+**Gap Analysis:** See [gap-analysis-report.md](gap-analysis-report.md) for detailed analysis of 35 identified API gaps.
+
 ---
 
-[← Current Coverage Analysis](current-coverage-analysis.md) | [Home](index.md)
+[← Current Coverage Analysis](current-coverage-analysis.md) | [Home](index.md) | [Next: Gap Analysis Report →](gap-analysis-report.md)
