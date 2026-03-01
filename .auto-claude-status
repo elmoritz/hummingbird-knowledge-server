@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "001-comprehensive-test-suite",
+  "spec": "008-multi-client-compatibility-testing-matrix",
   "state": "building",
   "subtasks": {
-    "completed": 6,
-    "total": 13,
+    "completed": 11,
+    "total": 12,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "MCP Tool Handler Tests",
+    "current": "Verification & QA",
     "id": null,
-    "total": 3
+    "total": 1
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 8,
-    "started_at": "2026-02-28T13:21:26.108704"
+    "number": 13,
+    "started_at": "2026-03-01T18:32:48.224600"
   },
-  "last_update": "2026-02-28T14:01:51.535604"
+  "last_update": "2026-03-01T19:13:33.382608"
 }

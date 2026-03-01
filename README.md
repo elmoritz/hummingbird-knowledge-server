@@ -257,6 +257,33 @@ For hosted, add `Authorization: Bearer your_token_here` in the headers section.
 
 ---
 
+## Client Compatibility
+
+**✅ Verified Compatible Clients**
+
+| Client | Status | Tools | Resources | Prompts | Configuration |
+|--------|--------|-------|-----------|---------|---------------|
+| **Claude Desktop** | ✅ Verified | 10/10 | 5/5 | 3/3 | [Example](examples/claude-desktop-config.json) |
+| **Cursor** | 📋 Testing | 10/10 | 5/5 | 3/3 | [Example](examples/cursor-config.json) |
+| **VS Code Continue** | 📋 Testing | 10/10 | 5/5 | 3/3 | [Example](examples/continue-config.json) |
+| **Zed** | 📋 Testing | 10/10 | 5/5 | 3/3 | [Example](examples/zed-settings.json) |
+| **VS Code Copilot** | ⚠️ Preview | 10/10 | 5/5 | 3/3 | [Example](examples/vscode-mcp.json) |
+
+**Legend:**
+- ✅ Verified — tested and confirmed working
+- 📋 Testing — templates prepared, awaiting manual verification
+- ⚠️ Preview — experimental support, subject to change
+
+**Server Version:** hummingbird-knowledge-server v0.1.0
+**MCP Spec:** 2025-06-18 (Streamable HTTP transport)
+
+For detailed compatibility information, setup instructions, known issues, and troubleshooting:
+- **[Full Compatibility Matrix](docs/client-compatibility.md)** — complete feature breakdown per client
+- **[Configuration Examples](examples/)** — ready-to-use config files for all clients
+- **[Testing Results](docs/testing/)** — detailed test reports for each client
+
+---
+
 ## What It Provides
 
 | Primitive | Count | Purpose |
