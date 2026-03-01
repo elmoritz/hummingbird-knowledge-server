@@ -105,6 +105,21 @@
     "lastVerifiedAt": "2025-01-01T00:00:00Z"
   },
   {
+    "id": "middleware-migration-1x-to-2x",
+    "title": "Middleware Protocol Migration: Hummingbird 1.x → 2.x",
+    "content": "Hummingbird 2.x completely redesigned the middleware API. The three critical changes are: (1) `MiddlewareProtocol` is now `RouterMiddleware`, (2) explicit `Context` type binding is required, and (3) the `next()` closure signature changed to accept both `Request` and `Context` parameters.\n\n```swift\n// ❌ Hummingbird 1.x — OLD API\nimport Hummingbird\n\nstruct LoggingMiddleware: HBMiddleware {\n    func apply(\n        to request: HBRequest,\n        next: HBResponder\n    ) async throws -> HBResponse {\n        let start = Date()\n        let response = try await next.respond(to: request)\n        let ms = Int(Date().timeIntervalSince(start) * 1000)\n        request.logger.info(\"Request completed in \\(ms)ms\")\n        return response\n    }\n}\n\n// ✅ Hummingbird 2.x — NEW API\nimport Hummingbird\n\nstruct LoggingMiddleware: RouterMiddleware {\n    typealias Context = AppRequestContext  // ← REQUIRED: Context type binding\n\n    func handle(\n        _ request: Request,\n        context: AppRequestContext,  // ← NEW: explicit context parameter\n        next: (Request, AppRequestContext) async throws -> Response  // ← NEW: next signature\n    ) async throws -> Response {\n        let start = Date()\n        let response = try await next(request, context)  // ← NEW: pass both request and context\n        let ms = Int(Date().timeIntervalSince(start) * 1000)\n        context.logger.info(\"Request completed in \\(ms)ms\")  // ← context.logger instead of request.logger\n        return response\n    }\n}\n```\n\n**Key Migration Steps:**\n\n1. **Protocol**: Change `HBMiddleware` or `MiddlewareProtocol` → `RouterMiddleware`\n2. **Context Type**: Add `typealias Context = AppRequestContext` to bind the middleware to your custom context type\n3. **Method Signature**: Change `apply(to:next:)` → `handle(_:context:next:)`\n4. **Next Closure**: The `next` parameter is now a closure that takes `(Request, AppRequestContext)` instead of a `HBResponder`\n5. **Context Access**: Logger and other context properties move from `request.logger` → `context.logger`\n6. **Types**: `HBRequest` → `Request`, `HBResponse` → `Response`\n\n**Common Pitfall:**\nForgetting to pass both `request` and `context` to the `next` closure will cause a compile error. The context carries per-request state and must be threaded through the entire middleware chain.",
+    "layer": "middleware",
+    "patternIds": ["middleware-chain", "migration-guide"],
+    "violationIds": ["hummingbird-1x-middleware"],
+    "hummingbirdVersionRange": ">=2.0.0",
+    "swiftVersionRange": ">=6.0",
+    "isTutorialPattern": false,
+    "correctionId": null,
+    "confidence": 1.0,
+    "source": "embedded",
+    "lastVerifiedAt": "2026-03-01T00:00:00Z"
+  },
+  {
     "id": "router-middleware-pattern",
     "title": "RouterMiddleware Protocol Pattern",
     "content": "Hummingbird 2.x middleware conforms to `RouterMiddleware`. The associated `Context` type binds the middleware to a specific request context. Middleware is added to the router before routes are registered — order matters.\n\n```swift\nstruct AuthMiddleware: RouterMiddleware {\n    typealias Context = AppRequestContext\n    private let token: String\n\n    func handle(\n        _ request: Request,\n        context: AppRequestContext,\n        next: (Request, AppRequestContext) async throws -> Response\n    ) async throws -> Response {\n        guard let header = request.headers[.authorization],\n              header == \"Bearer \\(token)\" else {\n            throw HTTPError(.unauthorized)\n        }\n        return try await next(request, context)\n    }\n}\n\n// Registration order matters — add before routes\nrouter.add(middleware: DependencyInjectionMiddleware(...))\nrouter.add(middleware: AuthMiddleware(token: ...))\nrouter.get(\"/protected\") { ... }\n```",
