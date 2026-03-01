@@ -99,7 +99,7 @@ final class CheckArchitectureToolTests: XCTestCase {
         let validCode = """
         import Foundation
 
-        struct UserService {
+        struct UserService: Sendable {
             func getUser(id: UUID) async throws -> User {
                 // Service logic
             }
@@ -136,7 +136,7 @@ final class CheckArchitectureToolTests: XCTestCase {
         let validCode = """
         import Foundation
 
-        struct UserService {
+        struct UserService: Sendable {
             func getUser(id: UUID) async throws -> User {
                 // Service logic
             }
@@ -569,7 +569,7 @@ final class CheckArchitectureToolTests: XCTestCase {
         let codeWithSpecialChars = """
         import Foundation
 
-        struct UserService {
+        struct UserService: Sendable {
             func getUser(name: String) -> String {
                 return "Hello, \\(name)! 你好 🎉"
             }

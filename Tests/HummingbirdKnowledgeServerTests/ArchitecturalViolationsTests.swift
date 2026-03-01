@@ -348,7 +348,7 @@ final class ArchitecturalViolationsTests: XCTestCase {
     // MARK: - Violation Catalogue Structure
 
     func testAllViolationsHaveRequiredFields() {
-        XCTAssertEqual(ArchitecturalViolations.all.count, 7, "Should have exactly 7 violations")
+        XCTAssertEqual(ArchitecturalViolations.all.count, 38, "Should have exactly 38 violations")
 
         for violation in ArchitecturalViolations.all {
             XCTAssertFalse(violation.id.isEmpty, "Violation ID must not be empty")
@@ -370,8 +370,8 @@ final class ArchitecturalViolationsTests: XCTestCase {
         let warningCount = ArchitecturalViolations.all.filter { $0.severity == .warning }.count
 
         XCTAssertEqual(criticalCount, 2, "Should have 2 critical violations")
-        XCTAssertEqual(errorCount, 3, "Should have 3 error violations")
-        XCTAssertEqual(warningCount, 2, "Should have 2 warning violations")
+        XCTAssertEqual(errorCount, 33, "Should have 33 error violations")
+        XCTAssertEqual(warningCount, 3, "Should have 3 warning violations")
     }
 
     func testAllViolationIDsAreUnique() {

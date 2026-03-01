@@ -1,0 +1,175 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  SWIFT_VERSION: '6.0'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: ${{ env.SWIFT_VERSION }}
+
+      - name: Check Swift format
+        run: |
+          # Basic format check - verify no trailing whitespace in Swift files
+          if grep -rn '[[:blank:]]$' --include='*.swift' Sources Tests; then
+            echo "Error: Found trailing whitespace in Swift files"
+            exit 1
+          fi
+          echo "Format check passed"
+
+      - name: Verify Swift 6 language mode
+        run: |
+          # Ensure Package.swift declares Swift 6.0 and all targets use Swift 6 language mode
+          if ! grep -q "swift-tools-version: 6.0" Package.swift; then
+            echo "Error: Package.swift must specify swift-tools-version: 6.0"
+            exit 1
+          fi
+          if ! grep -q ".swiftLanguageMode(.v6)" Package.swift; then
+            echo "Error: All targets must use Swift 6 language mode"
+            exit 1
+          fi
+          echo "Swift 6 compatibility verified"
+
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-22.04]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Swift (Ubuntu)
+        if: matrix.os == 'ubuntu-22.04'
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: ${{ env.SWIFT_VERSION }}
+
+      # macOS runners come with Swift pre-installed, but we verify the version
+      - name: Verify Swift version (macOS)
+        if: matrix.os == 'macos-14'
+        run: |
+          swift --version
+          # macOS 14 runners should have Swift 6.0+, but we check
+          SWIFT_MAJOR=$(swift --version | head -n1 | sed -E 's/.*version ([0-9]+).*/\1/')
+          if [ "$SWIFT_MAJOR" -lt 6 ]; then
+            echo "Error: Swift 6.0+ required, found version $SWIFT_MAJOR"
+            exit 1
+          fi
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/.cache/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve dependencies
+        run: swift package resolve
+
+      - name: Build (Release)
+        run: |
+          swift build \
+            --configuration release \
+            -Xswiftc -warnings-as-errors
+
+      - name: Run tests
+        run: swift test --parallel
+
+      - name: Verify test coverage
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          # Run tests with coverage on Linux only (macOS uses different tooling)
+          swift test --enable-code-coverage
+          echo "Test coverage generation complete"
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-22.04
+    needs: [lint, build-and-test]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: hummingbird-knowledge-server:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          # Build and start container to verify it runs
+          docker build -t hummingbird-knowledge-server:test .
+          docker run -d --name test-server -p 8080:8080 hummingbird-knowledge-server:test
+
+          # Wait for health check to pass (max 30 seconds)
+          echo "Waiting for container to be healthy..."
+          for i in {1..30}; do
+            if docker inspect --format='{{.State.Health.Status}}' test-server | grep -q 'healthy'; then
+              echo "Container is healthy"
+              docker logs test-server
+              docker stop test-server
+              docker rm test-server
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Container failed to become healthy"
+          docker logs test-server
+          docker stop test-server
+          docker rm test-server
+          exit 1
+
+  status-check:
+    name: CI Status
+    runs-on: ubuntu-22.04
+    needs: [lint, build-and-test, docker]
+    if: always()
+
+    steps:
+      - name: Check job results
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ]; then
+            echo "Lint job failed"
+            exit 1
+          fi
+          if [ "${{ needs.build-and-test.result }}" != "success" ]; then
+            echo "Build and test job failed"
+            exit 1
+          fi
+          if [ "${{ needs.docker.result }}" != "success" ]; then
+            echo "Docker job failed"
+            exit 1
+          fi
+          echo "All CI jobs passed successfully"

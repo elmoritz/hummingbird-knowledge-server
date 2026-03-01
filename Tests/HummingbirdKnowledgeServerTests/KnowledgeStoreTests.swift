@@ -356,7 +356,7 @@ final class KnowledgeStoreTests: XCTestCase {
         let store = KnowledgeStore.forTesting(seedEntries: [])
 
         let cleanCode = """
-        struct UserDTO: Codable {
+        struct UserDTO: Codable, Sendable {
             let id: UUID
             let name: String
         }

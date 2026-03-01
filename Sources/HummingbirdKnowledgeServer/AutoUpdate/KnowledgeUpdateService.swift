@@ -10,6 +10,9 @@
 
 import ServiceLifecycle
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import Logging
 
 /// Background service that periodically refreshes knowledge from upstream sources.
@@ -88,7 +91,7 @@ struct KnowledgeUpdateService: Service {
                     layer: nil,
                     patternIds: [],
                     violationIds: [],
-                    hummingbirdVersionRange: ">=\(tagName.trimmingCharacters(in: .init(charactersIn: "v")))",
+                    hummingbirdVersionRange: ">=\(tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v")))",
                     swiftVersionRange: ">=6.0",
                     isTutorialPattern: false,
                     correctionId: nil,
