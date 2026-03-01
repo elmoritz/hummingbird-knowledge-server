@@ -142,6 +142,108 @@ jobs:
           docker rm test-server
           exit 1
 
+  version:
+    name: Calculate Version & Tag
+    runs-on: ubuntu-22.04
+    needs: [lint, build-and-test, docker-verify]
+    outputs:
+      new_version: ${{ steps.semver.outputs.new_version }}
+      version_tag: ${{ steps.semver.outputs.version_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Calculate semver and create tag
+        id: semver
+        run: |
+          set -euo pipefail
+
+          # Get bump type from workflow_dispatch input
+          BUMP_TYPE="${{ github.event.inputs.bump_type }}"
+          echo "Bump type: $BUMP_TYPE"
+
+          # Fetch all tags
+          git fetch --tags --force
+
+          # Find the latest semver tag (vX.Y.Z format)
+          LATEST_TAG=$(git tag -l 'v*.*.*' | sort -V | tail -n1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing tags found, starting from v0.0.0"
+            LATEST_TAG="v0.0.0"
+          else
+            echo "Latest tag: $LATEST_TAG"
+          fi
+
+          # Check if HEAD already has a semver tag (rerun-safe)
+          HEAD_TAG=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || true)
+          if [ -n "$HEAD_TAG" ]; then
+            echo "HEAD already tagged with $HEAD_TAG (rerun-safe: reusing existing tag)"
+            NEW_VERSION="${HEAD_TAG#v}"
+            VERSION_TAG="$HEAD_TAG"
+            echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Parse current version
+          CURRENT_VERSION="${LATEST_TAG#v}"
+          MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+
+          # Calculate next version based on bump type
+          case "$BUMP_TYPE" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            bugfix)
+              PATCH=$((PATCH + 1))
+              ;;
+            *)
+              echo "Error: Unknown bump type: $BUMP_TYPE"
+              exit 1
+              ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          VERSION_TAG="v${NEW_VERSION}"
+
+          # Collision-safe: check if tag already exists on a different commit
+          while git rev-parse "$VERSION_TAG" >/dev/null 2>&1; do
+            echo "Tag $VERSION_TAG already exists on a different commit (collision detected)"
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            VERSION_TAG="v${NEW_VERSION}"
+            echo "Auto-incrementing to $VERSION_TAG"
+          done
+
+          echo "New version: $NEW_VERSION"
+          echo "Version tag: $VERSION_TAG"
+
+          # Configure git for tagging
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create annotated tag
+          git tag -a "$VERSION_TAG" -m "Release $VERSION_TAG"
+
+          # Push tag
+          git push origin "$VERSION_TAG"
+
+          # Set outputs
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+
   release:
     name: Build & Publish Release
     runs-on: ubuntu-22.04
