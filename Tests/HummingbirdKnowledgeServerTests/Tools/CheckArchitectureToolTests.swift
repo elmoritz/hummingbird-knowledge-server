@@ -313,7 +313,7 @@ final class CheckArchitectureToolTests: XCTestCase {
         if case .text(let message) = result.content[0] {
             XCTAssertTrue(message.contains("raw-error-thrown-from-handler"))
             XCTAssertTrue(
-                message.contains("Correction:"),
+                message.contains("→ Fix:"),
                 "Should provide correction guidance"
             )
             XCTAssertTrue(
@@ -321,12 +321,12 @@ final class CheckArchitectureToolTests: XCTestCase {
                 "Should include correction entry title"
             )
             XCTAssertTrue(
-                message.contains("typed-errors-app-error"),
-                "Should include correction ID"
+                message.contains("pattern_id:"),
+                "Should include correction ID reference"
             )
             XCTAssertTrue(
-                message.contains("explain_pattern"),
-                "Should suggest using explain_pattern tool"
+                message.contains("typed-errors-app-error"),
+                "Should include the correction ID"
             )
         }
     }
@@ -483,7 +483,7 @@ final class CheckArchitectureToolTests: XCTestCase {
 
         if case .text(let message) = result.content[0] {
             XCTAssertTrue(
-                message.contains("→ Correction:"),
+                message.contains("→ Fix:"),
                 "Should show correction guidance"
             )
             XCTAssertTrue(
@@ -491,12 +491,16 @@ final class CheckArchitectureToolTests: XCTestCase {
                 "Should show correction entry title"
             )
             XCTAssertTrue(
-                message.contains("dependency-injection-via-context"),
-                "Should show correction ID"
+                message.contains("Services must be injected, not constructed inline."),
+                "Should show correction entry content"
             )
             XCTAssertTrue(
-                message.contains("explain_pattern"),
-                "Should suggest explain_pattern tool"
+                message.contains("pattern_id:"),
+                "Should show pattern ID label"
+            )
+            XCTAssertTrue(
+                message.contains("dependency-injection-via-context"),
+                "Should show correction ID"
             )
         }
     }
