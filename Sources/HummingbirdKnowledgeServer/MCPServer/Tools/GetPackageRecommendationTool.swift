@@ -40,7 +40,10 @@ struct GetPackageRecommendationTool: ToolHandler {
         let sswgPackages = await store.sswgPackages()
 
         let lowerNeed = need.lowercased()
-        let needTerms = lowerNeed.split(separator: " ").map(String.init)
+        let needTerms = lowerNeed.split(separator: " ")
+            .map(String.init)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
 
         // Match packages based on title, content, and keywords
         let matches = sswgPackages.filter { entry in

@@ -11,10 +11,162 @@ import XCTest
 
 final class GetPackageRecommendationToolTests: XCTestCase {
 
+    // MARK: - Test Helpers
+
+    /// Creates test SSWG package entries for seeding the knowledge store
+    static func createSSWGPackageSeedData() -> [KnowledgeEntry] {
+        [
+            // PostgreSQL
+            KnowledgeEntry(
+                id: "sswg-postgresql-nio",
+                title: "SSWG Package: PostgresNIO",
+                content: "Low-level PostgreSQL database driver built on SwiftNIO.\n\n**Status:** SSWG Graduated\n**URL:** https://github.com/vapor/postgres-nio",
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0.0",
+                swiftVersionRange: ">=6.0",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 1.0,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            ),
+            // MySQL
+            KnowledgeEntry(
+                id: "sswg-mysql-nio",
+                title: "SSWG Package: MySQLNIO",
+                content: "MySQL database client library built on SwiftNIO.\n\n**Status:** SSWG Graduated\n**URL:** https://github.com/vapor/mysql-nio",
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0.0",
+                swiftVersionRange: ">=6.0",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 1.0,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            ),
+            // SQLite
+            KnowledgeEntry(
+                id: "sswg-sqlite-nio",
+                title: "SSWG Package: SQLiteNIO",
+                content: "SQLite database client library built on SwiftNIO.\n\n**Status:** SSWG Graduated\n**URL:** https://github.com/vapor/sqlite-nio",
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0.0",
+                swiftVersionRange: ">=6.0",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 1.0,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            ),
+            // Redis
+            KnowledgeEntry(
+                id: "sswg-redis-stack",
+                title: "SSWG Package: RediStack",
+                content: "Redis client for Swift. Use for caching, rate limiting, and session storage.\n\n**Status:** SSWG Graduated\n**URL:** https://github.com/swift-server/RediStack",
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0.0",
+                swiftVersionRange: ">=6.0",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 1.0,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            ),
+            // Logging
+            KnowledgeEntry(
+                id: "sswg-swift-log",
+                title: "SSWG Package: swift-log",
+                content: "Logging API for Swift.\nMaturity: SSWG Graduated\nRepository: https://github.com/apple/swift-log",
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0.0",
+                swiftVersionRange: ">=6.0",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 1.0,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            ),
+            // Metrics
+            KnowledgeEntry(
+                id: "sswg-swift-metrics",
+                title: "SSWG Package: swift-metrics",
+                content: "Metrics API for Swift.\nMaturity: SSWG Graduated\nRepository: https://github.com/apple/swift-metrics",
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0.0",
+                swiftVersionRange: ">=6.0",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 1.0,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            ),
+            // JWT
+            KnowledgeEntry(
+                id: "sswg-jwt-kit",
+                title: "SSWG Package: JWTKit",
+                content: "JWT signing and verification library.\nMaturity: SSWG Incubating\nRepository: https://github.com/vapor/jwt-kit",
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0.0",
+                swiftVersionRange: ">=6.0",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 1.0,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            ),
+            // HTTP Client
+            KnowledgeEntry(
+                id: "sswg-async-http-client",
+                title: "SSWG Package: AsyncHTTPClient",
+                content: "HTTP client library built on SwiftNIO.\nMaturity: SSWG Graduated\nRepository: https://github.com/swift-server/async-http-client",
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0.0",
+                swiftVersionRange: ">=6.0",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 1.0,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            ),
+            // WebSocket
+            KnowledgeEntry(
+                id: "sswg-hummingbird-websocket",
+                title: "SSWG Package: Hummingbird WebSocket",
+                content: "WebSocket support for Hummingbird.\nMaturity: Hummingbird ecosystem\nRepository: https://github.com/hummingbird-project/hummingbird-websocket",
+                layer: nil,
+                patternIds: [],
+                violationIds: [],
+                hummingbirdVersionRange: ">=2.0.0",
+                swiftVersionRange: ">=6.0",
+                isTutorialPattern: false,
+                correctionId: nil,
+                confidence: 1.0,
+                source: "sswg-index",
+                lastVerifiedAt: Date()
+            ),
+        ]
+    }
+
     // MARK: - Tool Configuration
 
     func testToolDefinition() {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         XCTAssertEqual(tool.tool.name, "get_package_recommendation")
@@ -42,7 +194,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Argument Validation
 
     func testHandle_MissingNeedArgument_ReturnsError() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle([:])
@@ -58,7 +210,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     }
 
     func testHandle_InvalidNeedType_ReturnsError() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .int(123)])
@@ -73,7 +225,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Database Recommendations
 
     func testHandle_PostgreSQLNeed_ReturnsRecommendation() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("PostgreSQL database")])
@@ -93,7 +245,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     }
 
     func testHandle_MySQLNeed_ReturnsRecommendation() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("mysql database")])
@@ -107,7 +259,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     }
 
     func testHandle_SQLiteNeed_ReturnsRecommendation() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("sqlite")])
@@ -123,7 +275,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Caching and State
 
     func testHandle_RedisNeed_ReturnsRecommendation() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("redis caching")])
@@ -140,7 +292,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Logging and Metrics
 
     func testHandle_LoggingNeed_ReturnsRecommendation() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("structured logging")])
@@ -154,7 +306,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     }
 
     func testHandle_MetricsNeed_ReturnsRecommendation() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("metrics observability")])
@@ -170,7 +322,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Authentication
 
     func testHandle_JWTNeed_ReturnsRecommendation() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("JWT authentication")])
@@ -186,7 +338,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - HTTP and Networking
 
     func testHandle_HTTPClientNeed_ReturnsRecommendation() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("http client")])
@@ -200,7 +352,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     }
 
     func testHandle_WebSocketNeed_ReturnsRecommendation() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("websocket")])
@@ -216,7 +368,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - No Matches
 
     func testHandle_UnknownNeed_ReturnsGuidance() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("quantum computing framework")])
@@ -233,7 +385,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Case Insensitivity
 
     func testHandle_CaseInsensitiveMatching_Works() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("POSTGRESQL DATABASE")])
@@ -248,7 +400,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Multiple Matches
 
     func testHandle_MultipleMatches_ShowsAll() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("database")])
@@ -265,7 +417,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Formatting
 
     func testHandle_IncludesVerificationLink() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("redis")])
@@ -279,7 +431,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     }
 
     func testHandle_IncludesPackageNotes() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("PostgreSQL")])
@@ -295,7 +447,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Partial Matching
 
     func testHandle_PartialWordMatching_FindsMatches() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("I need postgres")])
@@ -308,7 +460,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     }
 
     func testHandle_MultiwordNeed_MatchesAnyWord() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("I need authentication and logging")])
@@ -324,7 +476,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Edge Cases
 
     func testHandle_EmptyNeed_ReturnsNoMatches() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("")])
@@ -337,7 +489,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     }
 
     func testHandle_WhitespaceNeed_ReturnsNoMatches() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("   \n  \t  ")])
@@ -350,7 +502,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     }
 
     func testHandle_SpecialCharacters_HandlesGracefully() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("@#$% postgres &*()")])
@@ -365,7 +517,7 @@ final class GetPackageRecommendationToolTests: XCTestCase {
     // MARK: - Email/SMTP
 
     func testHandle_EmailNeed_ReturnsGuidance() async throws {
-        let store = KnowledgeStore.forTesting(seedEntries: [])
+        let store = KnowledgeStore.forTesting(seedEntries: Self.createSSWGPackageSeedData())
         let tool = GetPackageRecommendationTool(store: store)
 
         let result = try await tool.handle(["need": .string("email smtp")])
