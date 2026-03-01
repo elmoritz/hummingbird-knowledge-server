@@ -42,13 +42,14 @@ enum ArchitecturalLayer: String, Codable, Sendable, CaseIterable {
 /// Thread-safe, actor-isolated store for all knowledge entries and violation rules.
 ///
 /// Entries are loaded from the bundled `knowledge.json` at startup, then enriched
-/// at runtime by `KnowledgeUpdateService`. The violation catalogue in
-/// `ArchitecturalViolations.all` is compiled into the binary and never changes
-/// at runtime — only the knowledge entries are mutable.
+/// at runtime by `KnowledgeUpdateService`. The static violation catalogue in
+/// `ArchitecturalViolations.all` is compiled into the binary and never changes.
+/// Dynamic violations are auto-generated from release notes and can be updated at runtime.
 actor KnowledgeStore {
 
     private var entries: [String: KnowledgeEntry] = [:]
     private let violations: [ArchitecturalViolation] = ArchitecturalViolations.all
+    private var dynamicViolations: [DynamicViolation] = []
 
     // MARK: - Initialisation
 
@@ -103,10 +104,12 @@ actor KnowledgeStore {
 
     // MARK: - Violation detection
 
-    /// Matches `code` against the compiled violation catalogue.
+    /// Matches `code` against both static and dynamic violation catalogues.
     /// Returns all violations found, sorted by severity (critical first).
+    /// Only includes approved dynamic violations.
     func detectViolations(in code: String) -> [ArchitecturalViolation] {
-        violations.compactMap { violation in
+        // Check static violations
+        let staticMatches = violations.compactMap { violation -> ArchitecturalViolation? in
             guard (try? NSRegularExpression(pattern: violation.pattern, options: [.anchorsMatchLines]))
                     .flatMap({ regex in
                         let range = NSRange(code.startIndex..., in: code)
@@ -114,8 +117,44 @@ actor KnowledgeStore {
                     }) != nil
             else { return nil }
             return violation
-        }.sorted {
+        }
+
+        // Check dynamic violations (approved only)
+        let approvedDynamic = dynamicViolations.filter { $0.reviewStatus == .approved }
+        let dynamicMatches = approvedDynamic.compactMap { violation -> ArchitecturalViolation? in
+            guard (try? NSRegularExpression(pattern: violation.pattern, options: [.anchorsMatchLines]))
+                    .flatMap({ regex in
+                        let range = NSRange(code.startIndex..., in: code)
+                        return regex.firstMatch(in: code, range: range)
+                    }) != nil
+            else { return nil }
+            return convertToArchitecturalViolation(violation)
+        }
+
+        // Combine and sort by severity
+        return (staticMatches + dynamicMatches).sorted {
             severityRank($0.severity) > severityRank($1.severity)
+        }
+    }
+
+    /// Converts a DynamicViolation to ArchitecturalViolation for uniform handling.
+    private func convertToArchitecturalViolation(_ dynamic: DynamicViolation) -> ArchitecturalViolation {
+        ArchitecturalViolation(
+            id: dynamic.id,
+            pattern: dynamic.pattern,
+            description: dynamic.description,
+            correctionId: dynamic.correctionId,
+            severity: convertSeverity(dynamic.severity),
+            fixSuggestion: dynamic.fixSuggestion
+        )
+    }
+
+    /// Converts DynamicViolation.Severity to ArchitecturalViolation.Severity.
+    private func convertSeverity(_ severity: DynamicViolation.Severity) -> ArchitecturalViolation.Severity {
+        switch severity {
+        case .warning:  return .warning
+        case .error:    return .error
+        case .critical: return .critical
         }
     }
 
@@ -142,6 +181,46 @@ actor KnowledgeStore {
         }
     }
 
+    // MARK: - Dynamic violation management
+
+    /// Upserts a dynamic violation. Called by `KnowledgeUpdateService` when auto-generating
+    /// rules from release notes. Replaces existing violation with the same ID.
+    func upsertDynamicViolation(_ violation: DynamicViolation) {
+        if let index = dynamicViolations.firstIndex(where: { $0.id == violation.id }) {
+            dynamicViolations[index] = violation
+        } else {
+            dynamicViolations.append(violation)
+        }
+    }
+
+    /// Returns all dynamic violations, regardless of review status.
+    func getDynamicViolations() -> [DynamicViolation] {
+        dynamicViolations
+    }
+
+    /// Updates the review status of a dynamic violation.
+    /// Throws if the violation ID is not found.
+    func updateReviewStatus(id: String, status: ViolationReviewStatus) throws {
+        guard let index = dynamicViolations.firstIndex(where: { $0.id == id }) else {
+            throw KnowledgeStoreError.violationNotFound(id)
+        }
+
+        let existing = dynamicViolations[index]
+        let updated = DynamicViolation(
+            id: existing.id,
+            pattern: existing.pattern,
+            description: existing.description,
+            correctionId: existing.correctionId,
+            severity: existing.severity,
+            fixSuggestion: existing.fixSuggestion,
+            reviewStatus: status,
+            source: existing.source,
+            generatedAt: existing.generatedAt,
+            sourceRelease: existing.sourceRelease
+        )
+        dynamicViolations[index] = updated
+    }
+
     // MARK: - Formatted content for MCP resources
 
     func pitfallCatalogueText() -> String {
@@ -158,11 +237,13 @@ actor KnowledgeStore {
 enum KnowledgeStoreError: Error, CustomStringConvertible {
     case bundleResourceMissing(String)
     case decodingFailed(String)
+    case violationNotFound(String)
 
     var description: String {
         switch self {
         case .bundleResourceMissing(let name): return "Bundle resource missing: \(name)"
         case .decodingFailed(let reason): return "Decoding failed: \(reason)"
+        case .violationNotFound(let id): return "Dynamic violation not found: \(id)"
         }
     }
 }
