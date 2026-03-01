@@ -1,0 +1,306 @@
+name: Validate Contributions
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Sources/HummingbirdKnowledgeServer/KnowledgeBase/ArchitecturalViolations.swift'
+      - 'Sources/HummingbirdKnowledgeServer/KnowledgeBase/knowledge.json'
+      - 'scripts/validate-*.swift'
+      - '.github/workflows/validate-contributions.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  detect-changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    outputs:
+      violations: ${{ steps.filter.outputs.violations }}
+      knowledge: ${{ steps.filter.outputs.knowledge }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect file changes
+        id: filter
+        run: |
+          # Get list of changed files
+          git fetch origin ${{ github.base_ref }}
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Check for violations changes
+          if echo "$CHANGED_FILES" | grep -q "ArchitecturalViolations.swift"; then
+            echo "violations=true" >> $GITHUB_OUTPUT
+            echo "✓ Detected violations changes"
+          else
+            echo "violations=false" >> $GITHUB_OUTPUT
+            echo "✗ No violations changes"
+          fi
+
+          # Check for knowledge changes
+          if echo "$CHANGED_FILES" | grep -q "knowledge.json"; then
+            echo "knowledge=true" >> $GITHUB_OUTPUT
+            echo "✓ Detected knowledge changes"
+          else
+            echo "knowledge=false" >> $GITHUB_OUTPUT
+            echo "✗ No knowledge changes"
+          fi
+
+  validate-violations:
+    name: Validate Violation Rules
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.violations == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.0'
+
+      - name: Verify Swift version
+        run: swift --version
+
+      - name: Extract new violation rules
+        id: extract
+        run: |
+          # Fetch base branch for comparison
+          git fetch origin ${{ github.base_ref }}
+
+          # Find added violation rules by comparing with base branch
+          # This is a simplified approach - in practice, contributors should submit
+          # rules as separate JSON files in a contributions/ directory
+
+          # For now, we'll create a test JSON file to validate the workflow
+          # In actual use, contributors would create files like:
+          # contributions/violations/my-new-rule.json
+
+          # Check if contribution files exist
+          if ls contributions/violations/*.json 2>/dev/null; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "✓ Found violation contribution files"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "⚠ No violation contribution files found"
+            echo "Note: Contributors should submit rules as JSON files in contributions/violations/"
+          fi
+
+      - name: Validate violation rules
+        if: steps.extract.outputs.found == 'true'
+        id: validate
+        run: |
+          VALIDATION_FAILED=0
+          VALIDATION_OUTPUT=""
+
+          # Validate each contribution file
+          for file in contributions/violations/*.json; do
+            echo "Validating $file..."
+
+            if swift scripts/validate-violation-rule.swift "$file"; then
+              echo "✅ $file passed validation"
+              VALIDATION_OUTPUT="${VALIDATION_OUTPUT}\n✅ \`$(basename $file)\` passed validation"
+            else
+              echo "❌ $file failed validation"
+              VALIDATION_OUTPUT="${VALIDATION_OUTPUT}\n❌ \`$(basename $file)\` failed validation"
+              VALIDATION_FAILED=1
+            fi
+          done
+
+          # Save output for PR comment
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$VALIDATION_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Exit with failure if any validation failed
+          exit $VALIDATION_FAILED
+
+      - name: Generate PR checklist
+        if: always() && steps.extract.outputs.found == 'true'
+        id: checklist
+        run: |
+          CHECKLIST=$(swift scripts/generate-pr-checklist.swift --type violation)
+          echo "checklist<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHECKLIST" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post validation results
+        if: always() && steps.extract.outputs.found == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `## 🔍 Violation Rule Validation Results
+
+            ${{ steps.validate.outputs.output }}
+
+            ---
+
+            ${{ steps.checklist.outputs.checklist }}
+
+            ---
+
+            💡 **Tip:** Run validation locally before pushing:
+            \`\`\`bash
+            swift scripts/validate-violation-rule.swift contributions/violations/your-rule.json
+            \`\`\`
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  validate-knowledge:
+    name: Validate Knowledge Entries
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.knowledge == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.0'
+
+      - name: Verify Swift version
+        run: swift --version
+
+      - name: Extract new knowledge entries
+        id: extract
+        run: |
+          # Fetch base branch for comparison
+          git fetch origin ${{ github.base_ref }}
+
+          # Find added knowledge entries by comparing with base branch
+          # Contributors should submit entries as separate JSON files in:
+          # contributions/knowledge/my-new-entry.json
+
+          # Check if contribution files exist
+          if ls contributions/knowledge/*.json 2>/dev/null; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "✓ Found knowledge contribution files"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "⚠ No knowledge contribution files found"
+            echo "Note: Contributors should submit entries as JSON files in contributions/knowledge/"
+          fi
+
+      - name: Validate knowledge entries
+        if: steps.extract.outputs.found == 'true'
+        id: validate
+        run: |
+          VALIDATION_FAILED=0
+          VALIDATION_OUTPUT=""
+
+          # Validate each contribution file
+          for file in contributions/knowledge/*.json; do
+            echo "Validating $file..."
+
+            if swift scripts/validate-knowledge-entry.swift "$file"; then
+              echo "✅ $file passed validation"
+              VALIDATION_OUTPUT="${VALIDATION_OUTPUT}\n✅ \`$(basename $file)\` passed validation"
+            else
+              echo "❌ $file failed validation"
+              VALIDATION_OUTPUT="${VALIDATION_OUTPUT}\n❌ \`$(basename $file)\` failed validation"
+              VALIDATION_FAILED=1
+            fi
+          done
+
+          # Save output for PR comment
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$VALIDATION_OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Exit with failure if any validation failed
+          exit $VALIDATION_FAILED
+
+      - name: Generate PR checklist
+        if: always() && steps.extract.outputs.found == 'true'
+        id: checklist
+        run: |
+          CHECKLIST=$(swift scripts/generate-pr-checklist.swift --type knowledge)
+          echo "checklist<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHECKLIST" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post validation results
+        if: always() && steps.extract.outputs.found == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `## 📚 Knowledge Entry Validation Results
+
+            ${{ steps.validate.outputs.output }}
+
+            ---
+
+            ${{ steps.checklist.outputs.checklist }}
+
+            ---
+
+            💡 **Tip:** Run validation locally before pushing:
+            \`\`\`bash
+            swift scripts/validate-knowledge-entry.swift contributions/knowledge/your-entry.json
+            \`\`\`
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  validation-summary:
+    name: Validation Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, validate-violations, validate-knowledge]
+    if: always()
+    steps:
+      - name: Check validation status
+        run: |
+          echo "## Validation Summary"
+          echo ""
+
+          if [ "${{ needs.detect-changes.outputs.violations }}" == "true" ]; then
+            if [ "${{ needs.validate-violations.result }}" == "success" ]; then
+              echo "✅ Violation rules validation passed"
+            else
+              echo "❌ Violation rules validation failed"
+              exit 1
+            fi
+          else
+            echo "⏭️  No violation rules to validate"
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.knowledge }}" == "true" ]; then
+            if [ "${{ needs.validate-knowledge.result }}" == "success" ]; then
+              echo "✅ Knowledge entries validation passed"
+            else
+              echo "❌ Knowledge entries validation failed"
+              exit 1
+            fi
+          else
+            echo "⏭️  No knowledge entries to validate"
+          fi
+
+          echo ""
+          echo "All validations completed successfully! ✨"
