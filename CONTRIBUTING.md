@@ -277,8 +277,11 @@ swift scripts/validate-violation-rule.swift contributions/violations/your-rule.j
 #### Validate a Knowledge Entry
 
 ```bash
-swift scripts/validate-knowledge-entry.swift contributions/knowledge/your-entry.json
+# Validate format and structure (skip compilation check)
+swift scripts/validate-knowledge-entry.swift contributions/knowledge/your-entry.json --skip-compile
 ```
+
+**Note**: The `--skip-compile` flag skips code compilation checks, which require the full Swift package context. Code examples will be validated for compilation when your contribution is merged and included in the test suite.
 
 **Example output:**
 

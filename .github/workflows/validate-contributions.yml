@@ -213,7 +213,7 @@ jobs:
           for file in contributions/knowledge/*.json; do
             echo "Validating $file..."
 
-            if swift scripts/validate-knowledge-entry.swift "$file"; then
+            if swift scripts/validate-knowledge-entry.swift "$file" --skip-compile; then
               echo "✅ $file passed validation"
               VALIDATION_OUTPUT="${VALIDATION_OUTPUT}\n✅ \`$(basename $file)\` passed validation"
             else
