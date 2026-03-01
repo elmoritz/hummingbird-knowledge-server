@@ -1,0 +1,14 @@
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build of product 'HummingbirdKnowledgeServer' complete! (0.26s)
+2026-03-01T23:34:24+0100 info com.hummingbird-knowledge-server.app: [HummingbirdKnowledgeServer] Running in local mode — no authentication required
+2026-03-01T23:34:24+0100 info com.hummingbird-knowledge-server.app: entries=48 [HummingbirdKnowledgeServer] Knowledge base loaded
+2026-03-01T23:34:24+0100 info com.hummingbird-knowledge-server.app: [HummingbirdKnowledgeServer] SSE transport enabled
+2026-03-01T23:34:24+0100 info com.hummingbird-knowledge-server.app: [HummingbirdKnowledgeServer] HTTP transport enabled
+2026-03-01T23:34:24+0100 info com.hummingbird-knowledge-server.app: host=127.0.0.1 mode=local port=8080 transport=both [HummingbirdKnowledgeServer] Application built
+2026-03-01T23:34:24+0100 info com.hummingbird-knowledge-server.mcp.sse: [HummingbirdKnowledgeServer] MCP server service starting
+2026-03-01T23:34:24+0100 info com.hummingbird-knowledge-server.updater: github_auth=token interval_seconds=3600.0 seconds [HummingbirdKnowledgeServer] Knowledge update service started
+2026-03-01T23:34:24+0100 info com.hummingbird-knowledge-server.mcp.http: [HummingbirdKnowledgeServer] MCP server service starting
+2026-03-01T23:34:24+0100 info hummingbird-knowledge-server/0.1.0: [HummingbirdCore] Server started and listening on 127.0.0.1:8080
+2026-03-01T23:34:24+0100 info com.hummingbird-knowledge-server.updater: version=2.20.1 [HummingbirdKnowledgeServer] Updated latest release entry
+2026-03-01T23:34:27+0100 info com.hummingbird-knowledge-server.updater: count=32 [HummingbirdKnowledgeServer] Updated SSWG package entries
