@@ -1,0 +1,5 @@
+{
+  "id": "invalid-test-violation",
+  "pattern": "somePattern",
+  "description": "Invalid violation rule missing severity, correctionId, and testCases fields"
+}

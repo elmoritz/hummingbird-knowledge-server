@@ -13,6 +13,9 @@
 
 import Hummingbird
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import NIOCore
 
 struct MCPController: Controller {
@@ -76,7 +79,8 @@ extension MCPController {
         context: AppRequestContext
     ) async throws -> Response {
         let bodyBuffer = try await request.body.collect(upTo: 1 * 1024 * 1024)
-        let data = Data(buffer: bodyBuffer)
+        let bytes = bodyBuffer.getBytes(at: bodyBuffer.readerIndex, length: bodyBuffer.readableBytes) ?? []
+        let data = Data(bytes)
 
         guard !data.isEmpty else {
             throw HTTPError(.badRequest, message: "Request body must not be empty")

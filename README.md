@@ -1,5 +1,7 @@
 # hummingbird-knowledge-server
 
+[![CI](https://github.com/elmoritz/hummingbird-knowledge-server/actions/workflows/ci.yml/badge.svg)](https://github.com/elmoritz/hummingbird-knowledge-server/actions/workflows/ci.yml)
+
 An MCP (Model Context Protocol) server that gives AI assistants deep, production-accurate knowledge of [Hummingbird](https://github.com/hummingbird-project/hummingbird) and server-side Swift.
 
 It enforces professional, clean-architecture patterns in every response — routing-layer DTOs, service/repository separation, DI via `RequestContext`, typed errors — and actively flags tutorial-style code as incorrect.
@@ -31,7 +33,7 @@ You can run your own local instance **and** connect to a shared hosted instance 
 ## Running Locally
 
 ```bash
-git clone https://github.com/your-org/hummingbird-knowledge-server
+git clone https://github.com/elmoritz/hummingbird-knowledge-server
 cd hummingbird-knowledge-server
 cp .env.example .env
 
@@ -97,6 +99,55 @@ Authorization: Bearer <your_token>
 | `RATE_LIMIT_PER_MINUTE` | `60` | Max requests per IP per minute (hosted only) |
 | `KNOWLEDGE_UPDATE_INTERVAL` | `3600` | Seconds between auto-updates |
 | `GITHUB_TOKEN` | _(none)_ | Raises GitHub API limit from 60 to 5,000 req/hr |
+
+---
+
+## CI/CD
+
+The project uses GitHub Actions for automated testing and release management.
+
+### Continuous Integration
+
+The CI workflow runs automatically on:
+- Every push to `main`
+- Every pull request targeting `main`
+
+**Pipeline stages:**
+
+1. **Lint** — Format checks and Swift 6 language mode verification
+2. **Build & Test** — Matrix testing across macOS 14 and Ubuntu 22.04 with:
+   - Release builds with warnings-as-errors
+   - Parallel test execution
+   - Swift package caching for faster builds
+   - Code coverage reporting (Linux only)
+3. **Docker** — Docker image build verification with health checks
+4. **Status Check** — Aggregated CI status for branch protection
+
+All stages must pass before merging to `main`. The pipeline typically completes in under 10 minutes.
+
+### Release Workflow
+
+Tagged releases trigger automated Docker image publishing:
+
+```bash
+# Create and push a semantic version tag
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The release workflow:
+1. Extracts version from the tag (e.g., `v1.2.3` → `1.2.3`)
+2. Builds multi-platform Docker images (`linux/amd64`, `linux/arm64`)
+3. Publishes to GitHub Container Registry (GHCR) with tags:
+   - `ghcr.io/elmoritz/hummingbird-knowledge-server:1.2.3` (full version)
+   - `ghcr.io/elmoritz/hummingbird-knowledge-server:1.2` (major.minor)
+   - `ghcr.io/elmoritz/hummingbird-knowledge-server:1` (major)
+   - `ghcr.io/elmoritz/hummingbird-knowledge-server:latest`
+
+Pull the latest release:
+```bash
+docker pull ghcr.io/elmoritz/hummingbird-knowledge-server:latest
+```
 
 ---
 
