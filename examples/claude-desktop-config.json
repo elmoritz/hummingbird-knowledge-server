@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "hummingbird-knowledge-local": {
+      "url": "http://localhost:8080/mcp",
+      "transport": "sse"
+    },
+    "hummingbird-knowledge-hosted": {
+      "url": "https://mcp.yourdomain.com/mcp",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer your_token_here"
+      }
+    }
+  }
+}

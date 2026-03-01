@@ -1,0 +1,15 @@
+{
+  "local": {
+    "name": "hummingbird-knowledge",
+    "type": "SSE",
+    "endpoint": "http://localhost:8080/mcp"
+  },
+  "hosted": {
+    "name": "hummingbird-knowledge",
+    "type": "SSE",
+    "endpoint": "https://mcp.yourdomain.com/mcp",
+    "headers": {
+      "Authorization": "Bearer your_token_here"
+    }
+  }
+}
