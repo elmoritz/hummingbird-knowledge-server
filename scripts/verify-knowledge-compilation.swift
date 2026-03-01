@@ -100,7 +100,7 @@ func compileCodeExample(_ example: CodeExample) -> CompilationResult {
 
         // Attempt compilation
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/swiftc")
         process.arguments = [
             "-typecheck",
             "-parse-as-library",
