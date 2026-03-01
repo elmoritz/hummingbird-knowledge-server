@@ -104,8 +104,9 @@ final class DependencyInjectionMiddlewareTests: XCTestCase {
             // MCP endpoint (uses dependencies)
             let mcpResponse = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertNotNil(
@@ -154,8 +155,9 @@ final class DependencyInjectionMiddlewareTests: XCTestCase {
             // (DI middleware runs first, before auth checks)
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -177,16 +179,18 @@ final class DependencyInjectionMiddlewareTests: XCTestCase {
             for _ in 1...10 {
                 _ = try await client.execute(
                     uri: "/mcp",
-                    method: .get,
-                    headers: [:]
+                    method: .post,
+                    headers: [.contentType: "application/json"],
+                    body: ByteBuffer(string: "{}")
                 )
             }
 
             // 11th request should be rate limited
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(

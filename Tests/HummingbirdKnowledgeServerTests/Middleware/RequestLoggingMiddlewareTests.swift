@@ -101,8 +101,9 @@ final class RequestLoggingMiddlewareTests: XCTestCase {
         try await app.test(.router) { client in
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -159,8 +160,9 @@ final class RequestLoggingMiddlewareTests: XCTestCase {
         try await app.test(.router) { client in
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             // Any response status is fine - we're verifying the middleware doesn't interfere
@@ -308,8 +310,9 @@ final class RequestLoggingMiddlewareTests: XCTestCase {
             // Request without auth should log failure
             let invalidResponse = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertEqual(
@@ -327,8 +330,9 @@ final class RequestLoggingMiddlewareTests: XCTestCase {
             // Request within rate limit should log success
             let response = try await client.execute(
                 uri: "/mcp",
-                method: .get,
-                headers: [:]
+                method: .post,
+                headers: [.contentType: "application/json"],
+                body: ByteBuffer(string: "{}")
             )
 
             XCTAssertNotEqual(
