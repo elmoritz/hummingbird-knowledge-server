@@ -34,6 +34,7 @@ enum ArchitecturalLayer: String, Codable, Sendable, CaseIterable {
     case configuration
     case transport
     case context
+    case testing
 }
 
 // MARK: - Knowledge store
