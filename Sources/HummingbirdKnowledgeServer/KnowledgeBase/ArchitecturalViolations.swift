@@ -60,7 +60,32 @@ enum ArchitecturalViolations {
                 + "Route handlers must be pure dispatchers — all DB access belongs "
                 + "in the repository layer, called via the service layer.",
             correctionId: "route-handler-dispatcher-only",
-            severity: .critical
+            severity: .critical,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — database call in handler
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+                        guard !dto.email.isEmpty else { throw HTTPError(.badRequest) }
+                        let hashed = BCrypt.hash(dto.password)
+                        let user = User(email: dto.email, passwordHash: hashed)
+                        try await db.save(user)  // Direct DB access!
+                        return user
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — pure dispatcher
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+                        let user = try await context.dependencies.userService.create(dto)
+                        return CreateUserResponse(user)
+                    }
+                    """,
+                explanation: "Route handlers have exactly one job: dispatch to the service layer and return the result. "
+                    + "They must not contain business logic, database calls, or service construction. "
+                    + "This keeps handlers thin, testable, and framework-agnostic. All database access must go through "
+                    + "the repository layer, which is called by the service layer, which is called by the handler."
+            )
         ),
 
         ArchitecturalViolation(
@@ -70,7 +95,30 @@ enum ArchitecturalViolations {
                 + "Services must be injected via AppRequestContext — never constructed "
                 + "per-request inside a handler closure.",
             correctionId: "dependency-injection-via-context",
-            severity: .critical
+            severity: .critical,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — service constructed inline
+                    router.get("/users/:id") { request, context in
+                        let repo = PostgresUserRepository(pool: globalPool)
+                        let service = UserService(repository: repo)  // Constructed per request!
+                        let id = try context.parameters.require("id")
+                        return try await service.find(id: id)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — service from AppRequestContext
+                    router.get("/users/:id") { request, context in
+                        let id = try context.parameters.require("id")
+                        return try await context.dependencies.userService.find(id: id)
+                    }
+                    """,
+                explanation: "All dependencies (services, repositories, stores) must be accessed through "
+                    + "AppRequestContext.dependencies. This gives you a single, testable, type-safe injection point. "
+                    + "Constructing services inside handlers creates coupling, makes testing impossible, and wastes "
+                    + "resources by reconstructing dependencies on every request. DependencyInjectionMiddleware "
+                    + "populates context.dependencies at the start of every request with pre-configured instances."
+            )
         ),
 
         // ── Error: wrong architecture ─────────────────────────────────────────
