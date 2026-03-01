@@ -64,6 +64,81 @@ struct KnowledgeUpdateService: Service {
 
     // MARK: - GitHub Releases
 
+    /// Fetch and process the last N historical releases for initial seeding and validation
+    private func fetchHistoricalReleases(count: Int) async {
+        let url = URL(string: "https://api.github.com/repos/hummingbird-project/hummingbird/releases?per_page=\(count)")!
+        do {
+            var request = URLRequest(url: url)
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+            if let token = githubToken {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                logger.warning("GitHub releases API returned non-200", metadata: ["url": "\(url)"])
+                return
+            }
+
+            guard let releases = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                logger.warning("Failed to parse GitHub releases JSON")
+                return
+            }
+
+            logger.info("Fetched historical releases", metadata: ["count": "\(releases.count)"])
+
+            let parser = ChangelogParser()
+            let generator = ViolationRuleGenerator()
+            var totalDeprecations = 0
+            var totalRulesGenerated = 0
+
+            for release in releases {
+                guard let tagName = release["tag_name"] as? String,
+                      let body = release["body"] as? String else {
+                    logger.debug("Skipping release with missing tag_name or body")
+                    continue
+                }
+
+                // Parse release notes for deprecations
+                let deprecations = parser.parse(body)
+                totalDeprecations += deprecations.count
+
+                logger.debug("Parsed historical release notes", metadata: [
+                    "version": "\(tagName)",
+                    "deprecations_found": "\(deprecations.count)"
+                ])
+
+                if !deprecations.isEmpty {
+                    let releaseVersion = tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
+
+                    for deprecation in deprecations {
+                        let violation = generator.generate(from: deprecation, releaseVersion: releaseVersion)
+                        try await store.upsertDynamicViolation(violation)
+                        totalRulesGenerated += 1
+
+                        logger.debug("Generated violation rule from historical release", metadata: [
+                            "version": "\(tagName)",
+                            "id": "\(violation.id)",
+                            "api": "\(deprecation.deprecatedAPI)",
+                            "category": "\(deprecation.category)",
+                            "severity": "\(violation.severity)"
+                        ])
+                    }
+                }
+            }
+
+            logger.info("Completed historical release processing", metadata: [
+                "releases_processed": "\(releases.count)",
+                "total_deprecations": "\(totalDeprecations)",
+                "total_rules_generated": "\(totalRulesGenerated)"
+            ])
+        } catch {
+            logger.warning("Failed to fetch historical releases", metadata: ["error": "\(error)"])
+        }
+    }
+
     private func checkHummingbirdRelease() async {
         let url = URL(string: "https://api.github.com/repos/hummingbird-project/hummingbird/releases/latest")!
         do {
@@ -84,6 +159,7 @@ struct KnowledgeUpdateService: Service {
             if let release = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let tagName = release["tag_name"] as? String,
                let body = release["body"] as? String {
+                // Update knowledge entry for release
                 let entry = KnowledgeEntry(
                     id: "hummingbird-latest-release",
                     title: "Hummingbird Latest Release: \(tagName)",
@@ -101,6 +177,39 @@ struct KnowledgeUpdateService: Service {
                 )
                 await store.upsert(entry)
                 logger.info("Updated latest release entry", metadata: ["version": "\(tagName)"])
+
+                // Parse release notes for deprecations and generate violation rules
+                let parser = ChangelogParser()
+                let deprecations = parser.parse(body)
+
+                logger.debug("Parsed release notes", metadata: [
+                    "version": "\(tagName)",
+                    "deprecations_found": "\(deprecations.count)"
+                ])
+
+                if !deprecations.isEmpty {
+                    let generator = ViolationRuleGenerator()
+                    let releaseVersion = tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
+                    var generatedCount = 0
+
+                    for deprecation in deprecations {
+                        let violation = generator.generate(from: deprecation, releaseVersion: releaseVersion)
+                        try await store.upsertDynamicViolation(violation)
+                        generatedCount += 1
+
+                        logger.debug("Generated violation rule", metadata: [
+                            "id": "\(violation.id)",
+                            "api": "\(deprecation.deprecatedAPI)",
+                            "category": "\(deprecation.category)",
+                            "severity": "\(violation.severity)"
+                        ])
+                    }
+
+                    logger.info("Generated and stored violation rules", metadata: [
+                        "version": "\(tagName)",
+                        "rules_generated": "\(generatedCount)"
+                    ])
+                }
             }
         } catch {
             logger.warning("Failed to fetch GitHub release", metadata: ["error": "\(error)"])

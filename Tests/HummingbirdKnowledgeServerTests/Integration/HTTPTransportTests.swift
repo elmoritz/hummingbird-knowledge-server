@@ -338,7 +338,14 @@ extension HTTPTransportTests {
         } else {
             seedEntries = try loadTestFixture()
         }
-        let knowledgeStore = KnowledgeStore(seedEntries: seedEntries)
+
+        // Create temporary directory for dynamic violations
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HTTPTransportTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let dynamicViolationsURL = tempDir.appendingPathComponent("dynamic-violations.json")
+
+        let knowledgeStore = KnowledgeStore(seedEntries: seedEntries, dynamicViolationsFileURL: dynamicViolationsURL)
 
         // ── Test MCP Server ───────────────────────────────────────────────────────
         let mcpServer = Server(
