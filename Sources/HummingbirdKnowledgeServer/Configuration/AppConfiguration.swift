@@ -32,6 +32,9 @@ struct AppConfiguration: Sendable {
     // Rate limiting — nil means disabled (local mode default)
     let rateLimitPerMinute: Int?
 
+    // Transport configuration — which MCP transport(s) to enable
+    let transport: TransportMode
+
     /// True when running as a shared hosted server (MCP_AUTH_TOKEN is set).
     var isHosted: Bool { authToken != nil }
 
@@ -54,8 +57,25 @@ struct AppConfiguration: Sendable {
             authToken: authToken,
             rateLimitPerMinute: isHosted
                 ? (try? Environment.int("RATE_LIMIT_PER_MINUTE", default: 60)) ?? 60
-                : nil
+                : nil,
+            transport: try Environment.transportMode
         )
+    }
+}
+
+// MARK: - Transport Mode
+
+enum TransportMode: String, Sendable {
+    case sse
+    case http
+    case both
+
+    var supportsSSE: Bool {
+        self == .sse || self == .both
+    }
+
+    var supportsHTTP: Bool {
+        self == .http || self == .both
     }
 }
 
@@ -87,6 +107,20 @@ enum Environment {
             let level = Logger.Level(rawValue: raw.lowercased())
         else { return .info }
         return level
+    }
+
+    static var transportMode: TransportMode {
+        get throws {
+            let raw = ProcessInfo.processInfo.environment["TRANSPORT"] ?? "both"
+            guard let mode = TransportMode(rawValue: raw.lowercased()) else {
+                throw ConfigurationError.invalidValue(
+                    key: "TRANSPORT",
+                    value: raw,
+                    expected: "sse, http, or both"
+                )
+            }
+            return mode
+        }
     }
 }
 
