@@ -1,0 +1,15 @@
+{
+  "id": "test-knowledge-entry-fixture",
+  "title": "Test Knowledge Entry for Validation Fixtures",
+  "content": "This is a test knowledge entry used for validation fixtures. It demonstrates proper JSON structure for knowledge base entries.\n\n✅ Correct — test example:\n```swift\nstruct TestExample: Sendable {\n    let property: String\n}\n```\n\n❌ Wrong — anti-pattern example:\n```swift\nstruct BadExample {\n    var globalState: [String] = []\n}\n```",
+  "layer": "controller",
+  "patternIds": ["test-pattern"],
+  "violationIds": ["test-violation-rule"],
+  "hummingbirdVersionRange": ">=2.0.0",
+  "swiftVersionRange": ">=6.0",
+  "isTutorialPattern": false,
+  "correctionId": null,
+  "confidence": 0.95,
+  "source": "test-fixture",
+  "lastVerifiedAt": "2026-03-01T00:00:00Z"
+}

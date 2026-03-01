@@ -1,0 +1,7 @@
+{
+  "id": "invalid-test-entry",
+  "title": "Invalid Knowledge Entry",
+  "content": "This entry is missing required fields and has invalid types.",
+  "confidence": "not-a-number",
+  "hummingbirdVersionRange": "invalid-version"
+}

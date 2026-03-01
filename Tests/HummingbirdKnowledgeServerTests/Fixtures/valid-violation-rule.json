@@ -1,0 +1,17 @@
+{
+  "id": "test-violation-rule",
+  "pattern": "router\\.(get|post).*\\{[^}]*testPattern",
+  "description": "Test violation rule for validation fixtures. This rule detects a test anti-pattern in route handlers.",
+  "correctionId": "route-handler-dispatcher-only",
+  "severity": "error",
+  "testCases": {
+    "positive": [
+      "router.get(\"/test\") { request, context in let testPattern = \"value\" }",
+      "router.post(\"/api\") { req, ctx in var testPattern = 123 }"
+    ],
+    "negative": [
+      "router.get(\"/test\") { request, context in let normalVar = \"value\" }",
+      "router.post(\"/api\") { req, ctx in return \"ok\" }"
+    ]
+  }
+}
