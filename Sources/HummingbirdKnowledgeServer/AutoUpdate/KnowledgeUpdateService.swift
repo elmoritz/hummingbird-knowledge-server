@@ -84,6 +84,7 @@ struct KnowledgeUpdateService: Service {
             if let release = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let tagName = release["tag_name"] as? String,
                let body = release["body"] as? String {
+                // Update knowledge entry for release
                 let entry = KnowledgeEntry(
                     id: "hummingbird-latest-release",
                     title: "Hummingbird Latest Release: \(tagName)",
@@ -101,6 +102,39 @@ struct KnowledgeUpdateService: Service {
                 )
                 await store.upsert(entry)
                 logger.info("Updated latest release entry", metadata: ["version": "\(tagName)"])
+
+                // Parse release notes for deprecations and generate violation rules
+                let parser = ChangelogParser()
+                let deprecations = parser.parse(body)
+
+                logger.debug("Parsed release notes", metadata: [
+                    "version": "\(tagName)",
+                    "deprecations_found": "\(deprecations.count)"
+                ])
+
+                if !deprecations.isEmpty {
+                    let generator = ViolationRuleGenerator()
+                    let releaseVersion = tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
+                    var generatedCount = 0
+
+                    for deprecation in deprecations {
+                        let violation = generator.generate(from: deprecation, releaseVersion: releaseVersion)
+                        await store.upsertDynamicViolation(violation)
+                        generatedCount += 1
+
+                        logger.debug("Generated violation rule", metadata: [
+                            "id": "\(violation.id)",
+                            "api": "\(deprecation.deprecatedAPI)",
+                            "category": "\(deprecation.category)",
+                            "severity": "\(violation.severity)"
+                        ])
+                    }
+
+                    logger.info("Generated and stored violation rules", metadata: [
+                        "version": "\(tagName)",
+                        "rules_generated": "\(generatedCount)"
+                    ])
+                }
             }
         } catch {
             logger.warning("Failed to fetch GitHub release", metadata: ["error": "\(error)"])
