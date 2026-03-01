@@ -13,3 +13,4 @@ DerivedData
 .worktrees/
 .security-key
 logs/security/
+**/.DS_Store
