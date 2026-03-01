@@ -38,7 +38,13 @@ func buildTestApplication(
     } else {
         seedEntries = try loadTestFixture()
     }
-    let knowledgeStore = KnowledgeStore(seedEntries: seedEntries)
+    // Create temporary directory for dynamic violations
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent("TestHelpers-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    let dynamicViolationsURL = tempDir.appendingPathComponent("dynamic-violations.json")
+
+    let knowledgeStore = KnowledgeStore(seedEntries: seedEntries, dynamicViolationsFileURL: dynamicViolationsURL)
 
     // ── Test MCP Server ───────────────────────────────────────────────────────
     let mcpServer = Server(
@@ -155,7 +161,13 @@ extension KnowledgeStore {
     /// Creates a test KnowledgeStore with the given seed entries.
     /// Exposed for testing only — production code uses `loadFromBundle()`.
     static func forTesting(seedEntries: [KnowledgeEntry] = []) -> KnowledgeStore {
-        KnowledgeStore(seedEntries: seedEntries)
+        // Create temporary directory for dynamic violations
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("KnowledgeStoreTest-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let dynamicViolationsURL = tempDir.appendingPathComponent("dynamic-violations.json")
+
+        return KnowledgeStore(seedEntries: seedEntries, dynamicViolationsFileURL: dynamicViolationsURL)
     }
 }
 
