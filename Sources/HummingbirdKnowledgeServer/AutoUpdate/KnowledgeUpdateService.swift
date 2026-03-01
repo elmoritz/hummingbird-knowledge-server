@@ -119,7 +119,7 @@ struct KnowledgeUpdateService: Service {
 
                     for deprecation in deprecations {
                         let violation = generator.generate(from: deprecation, releaseVersion: releaseVersion)
-                        await store.upsertDynamicViolation(violation)
+                        try await store.upsertDynamicViolation(violation)
                         generatedCount += 1
 
                         logger.debug("Generated violation rule", metadata: [

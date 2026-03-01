@@ -50,18 +50,22 @@ actor KnowledgeStore {
     private var entries: [String: KnowledgeEntry] = [:]
     private let violations: [ArchitecturalViolation] = ArchitecturalViolations.all
     private var dynamicViolations: [DynamicViolation] = []
+    private let dynamicViolationsFileURL: URL
 
     // MARK: - Initialisation
 
-    /// Creates a KnowledgeStore with the given seed entries.
+    /// Creates a KnowledgeStore with the given seed entries and dynamic violations file URL.
     /// Exposed as `internal` so tests can create instances with test data.
     /// Production code should use `loadFromBundle()` instead.
-    init(seedEntries: [KnowledgeEntry]) {
+    init(seedEntries: [KnowledgeEntry], dynamicViolationsFileURL: URL) {
         self.entries = Dictionary(uniqueKeysWithValues: seedEntries.map { ($0.id, $0) })
+        self.dynamicViolationsFileURL = dynamicViolationsFileURL
     }
 
-    /// Loads seed entries from the bundled `knowledge.json` resource.
-    static func loadFromBundle() throws -> KnowledgeStore {
+    /// Loads seed entries from the bundled `knowledge.json` resource
+    /// and dynamic violations from persistent storage.
+    static func loadFromBundle() async throws -> KnowledgeStore {
+        // Load knowledge entries from bundle
         guard let url = Bundle.module.url(forResource: "knowledge", withExtension: "json") else {
             throw KnowledgeStoreError.bundleResourceMissing("knowledge.json")
         }
@@ -69,7 +73,62 @@ actor KnowledgeStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let seedEntries = try decoder.decode([KnowledgeEntry].self, from: data)
-        return KnowledgeStore(seedEntries: seedEntries)
+
+        // Determine writable location for dynamic violations
+        let fileManager = FileManager.default
+        let appSupportDir = try fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let storeDir = appSupportDir.appendingPathComponent("HummingbirdKnowledgeServer", isDirectory: true)
+        try fileManager.createDirectory(at: storeDir, withIntermediateDirectories: true)
+        let dynamicViolationsURL = storeDir.appendingPathComponent("dynamic-violations.json")
+
+        // Initialize store
+        let store = KnowledgeStore(seedEntries: seedEntries, dynamicViolationsFileURL: dynamicViolationsURL)
+
+        // Load dynamic violations from persistent storage (if exists)
+        try await store.loadDynamicViolations()
+
+        return store
+    }
+
+    /// Loads dynamic violations from the persistent file.
+    /// If the file doesn't exist, initializes from the bundled seed file.
+    private func loadDynamicViolations() throws {
+        let fileManager = FileManager.default
+
+        if fileManager.fileExists(atPath: dynamicViolationsFileURL.path) {
+            // Load from persistent storage
+            let data = try Data(contentsOf: dynamicViolationsFileURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            self.dynamicViolations = try decoder.decode([DynamicViolation].self, from: data)
+        } else {
+            // Initialize from bundled seed file
+            if let bundleURL = Bundle.module.url(forResource: "dynamic-violations", withExtension: "json") {
+                let data = try Data(contentsOf: bundleURL)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                self.dynamicViolations = try decoder.decode([DynamicViolation].self, from: data)
+                // Save to persistent location
+                try saveDynamicViolations()
+            } else {
+                // No seed file, start with empty array
+                self.dynamicViolations = []
+            }
+        }
+    }
+
+    /// Saves dynamic violations to the persistent file.
+    private func saveDynamicViolations() throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(dynamicViolations)
+        try data.write(to: dynamicViolationsFileURL, options: [.atomic])
     }
 
     // MARK: - Reads
@@ -185,12 +244,14 @@ actor KnowledgeStore {
 
     /// Upserts a dynamic violation. Called by `KnowledgeUpdateService` when auto-generating
     /// rules from release notes. Replaces existing violation with the same ID.
-    func upsertDynamicViolation(_ violation: DynamicViolation) {
+    /// Persists the change to disk.
+    func upsertDynamicViolation(_ violation: DynamicViolation) throws {
         if let index = dynamicViolations.firstIndex(where: { $0.id == violation.id }) {
             dynamicViolations[index] = violation
         } else {
             dynamicViolations.append(violation)
         }
+        try saveDynamicViolations()
     }
 
     /// Returns all dynamic violations, regardless of review status.
@@ -200,6 +261,7 @@ actor KnowledgeStore {
 
     /// Updates the review status of a dynamic violation.
     /// Throws if the violation ID is not found.
+    /// Persists the change to disk.
     func updateReviewStatus(id: String, status: ViolationReviewStatus) throws {
         guard let index = dynamicViolations.firstIndex(where: { $0.id == id }) else {
             throw KnowledgeStoreError.violationNotFound(id)
@@ -219,6 +281,7 @@ actor KnowledgeStore {
             sourceRelease: existing.sourceRelease
         )
         dynamicViolations[index] = updated
+        try saveDynamicViolations()
     }
 
     // MARK: - Formatted content for MCP resources

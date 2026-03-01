@@ -28,7 +28,7 @@ func buildApplication(
     }
 
     // ── Knowledge base ────────────────────────────────────────────────────────
-    let knowledgeStore = try KnowledgeStore.loadFromBundle()
+    let knowledgeStore = try await KnowledgeStore.loadFromBundle()
     let entryCount = await knowledgeStore.count
     logger.info("Knowledge base loaded", metadata: ["entries": "\(entryCount)"])
 
