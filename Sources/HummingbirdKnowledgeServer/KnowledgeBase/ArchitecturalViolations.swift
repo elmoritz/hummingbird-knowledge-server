@@ -961,7 +961,34 @@ enum ArchitecturalViolations {
                 + "Synchronous file operations block the async thread pool — "
                 + "use AsyncFileHandle, NIO's NonBlockingFileIO, or dispatch to a dedicated queue.",
             correctionId: "non-blocking-io",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — blocking file I/O in async context
+                    func loadConfig() async throws -> Config {
+                        let data = FileManager.default.contents(atPath: "/etc/config.json")
+                        guard let data = data else { throw ConfigError.notFound }
+                        return try JSONDecoder().decode(Config.self, from: data)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — non-blocking file I/O
+                    import NIOPosix
+                    import NIOCore
+
+                    func loadConfig(fileIO: NonBlockingFileIO, allocator: ByteBufferAllocator) async throws -> Config {
+                        let fileHandle = try await fileIO.openFile(path: "/etc/config.json", eventLoop: eventLoop)
+                        defer { try? fileHandle.close() }
+                        let buffer = try await fileIO.read(fileHandle: fileHandle, allocator: allocator, eventLoop: eventLoop)
+                        return try JSONDecoder().decode(Config.self, from: Data(buffer: buffer))
+                    }
+                    """,
+                explanation: "Synchronous file operations block the cooperative thread pool that Swift's async/await "
+                    + "runtime uses for concurrency. This destroys parallelism and can cause deadlocks. "
+                    + "Use NIO's NonBlockingFileIO for async file operations, or dispatch blocking operations "
+                    + "to a dedicated serial queue. In Hummingbird, NonBlockingFileIO is available through the application's "
+                    + "event loop group and should be injected via dependencies."
+            )
         ),
 
         ArchitecturalViolation(
@@ -971,7 +998,39 @@ enum ArchitecturalViolations {
                 + "Legacy URLSession.dataTask blocks threads and breaks structured concurrency — "
                 + "use async/await URLSession.data(for:) instead.",
             correctionId: "async-concurrency-patterns",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — completion-handler-based network call
+                    func fetchUser(id: String, completion: @escaping (User?) -> Void) {
+                        let url = URL(string: "https://api.example.com/users/\\(id)")!
+                        URLSession.shared.dataTask(with: url) { data, response, error in
+                            guard let data = data, error == nil else {
+                                completion(nil)
+                                return
+                            }
+                            let user = try? JSONDecoder().decode(User.self, from: data)
+                            completion(user)
+                        }.resume()
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — async/await network call
+                    func fetchUser(id: String) async throws -> User {
+                        let url = URL(string: "https://api.example.com/users/\\(id)")!
+                        let (data, response) = try await URLSession.shared.data(from: url)
+                        guard let httpResponse = response as? HTTPURLResponse,
+                              (200...299).contains(httpResponse.statusCode) else {
+                            throw AppError.networkError(reason: "Invalid response")
+                        }
+                        return try JSONDecoder().decode(User.self, from: data)
+                    }
+                    """,
+                explanation: "Completion-handler-based URLSession.dataTask breaks structured concurrency, makes error "
+                    + "handling complex, and can cause callback hell. Swift 6 async/await provides URLSession.data(from:) "
+                    + "which integrates seamlessly with structured concurrency, automatic cancellation, and proper error "
+                    + "propagation. This eliminates race conditions and makes concurrent code readable and maintainable."
+            )
         ),
 
         ArchitecturalViolation(
@@ -981,7 +1040,43 @@ enum ArchitecturalViolations {
                 + "sleep() and Thread.sleep() block the cooperative thread pool — "
                 + "use Task.sleep(nanoseconds:) or Task.sleep(for:) to yield correctly.",
             correctionId: "async-concurrency-patterns",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — blocking sleep in async context
+                    func retryWithBackoff() async throws -> Response {
+                        for attempt in 1...3 {
+                            do {
+                                return try await makeRequest()
+                            } catch {
+                                if attempt < 3 {
+                                    sleep(UInt32(attempt))  // Blocks the thread!
+                                }
+                            }
+                        }
+                        throw AppError.maxRetriesExceeded
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — non-blocking sleep with Task.sleep
+                    func retryWithBackoff() async throws -> Response {
+                        for attempt in 1...3 {
+                            do {
+                                return try await makeRequest()
+                            } catch {
+                                if attempt < 3 {
+                                    try await Task.sleep(for: .seconds(attempt))  // Yields properly
+                                }
+                            }
+                        }
+                        throw AppError.maxRetriesExceeded
+                    }
+                    """,
+                explanation: "Foundation's sleep() and Thread.sleep() block the underlying thread, preventing the Swift "
+                    + "concurrency runtime from scheduling other tasks on that thread. This destroys concurrency performance "
+                    + "and can cause deadlocks. Task.sleep(for:) or Task.sleep(nanoseconds:) yields the thread back to the "
+                    + "runtime, allowing other tasks to run while waiting. Task.sleep also respects task cancellation automatically."
+            )
         ),
 
         ArchitecturalViolation(
@@ -991,7 +1086,34 @@ enum ArchitecturalViolations {
                 + "Synchronous database operations block the thread pool — "
                 + "all database calls must use async/await to preserve concurrency.",
             correctionId: "async-concurrency-patterns",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — synchronous database call in async context
+                    func findUser(id: UUID) async throws -> User {
+                        let result = pool.query("SELECT * FROM users WHERE id = $1", [id])  // Missing await!
+                        guard let row = result.first else {
+                            throw AppError.notFound
+                        }
+                        return User(from: row)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — async database call with await
+                    func findUser(id: UUID) async throws -> User {
+                        let result = try await pool.query("SELECT * FROM users WHERE id = $1", [id])
+                        guard let row = result.first else {
+                            throw AppError.notFound
+                        }
+                        return User(from: row)
+                    }
+                    """,
+                explanation: "Database operations are I/O-bound and can take significant time. Calling them synchronously "
+                    + "in an async context blocks the cooperative thread pool, preventing other tasks from running. "
+                    + "Modern database drivers (PostgresNIO, MongoKitten, etc.) provide async/await APIs that integrate "
+                    + "with Swift's structured concurrency. Always use await with database calls to yield the thread "
+                    + "while waiting for I/O, maintaining application throughput and responsiveness."
+            )
         ),
 
         ArchitecturalViolation(
@@ -1001,7 +1123,45 @@ enum ArchitecturalViolations {
                 + "Global mutable state causes data races in concurrent code — "
                 + "use actors, @MainActor, or make the value immutable (let) instead.",
             correctionId: "actor-for-shared-state",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — global mutable state without protection
+                    var requestCount: Int = 0
+                    var activeConnections: [String: Connection] = [:]
+
+                    router.get("/metrics") { request, context in
+                        requestCount += 1  // Data race!
+                        return MetricsResponse(count: requestCount)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — actor-protected state
+                    actor MetricsStore {
+                        private var requestCount: Int = 0
+                        private var activeConnections: [String: Connection] = [:]
+
+                        func incrementRequests() -> Int {
+                            requestCount += 1
+                            return requestCount
+                        }
+
+                        func recordConnection(id: String, connection: Connection) {
+                            activeConnections[id] = connection
+                        }
+                    }
+
+                    router.get("/metrics") { request, context in
+                        let count = await context.dependencies.metrics.incrementRequests()
+                        return MetricsResponse(count: count)
+                    }
+                    """,
+                explanation: "Global mutable variables create data races in concurrent code because multiple requests "
+                    + "can access and modify them simultaneously without synchronization. Swift 6 strict concurrency "
+                    + "mode enforces this at compile time. Actors provide safe serialized access to mutable state — "
+                    + "all access is serialized through the actor's executor. Inject the actor via AppRequestContext.dependencies "
+                    + "to maintain testability and proper dependency management."
+            )
         ),
 
         ArchitecturalViolation(
@@ -1011,7 +1171,44 @@ enum ArchitecturalViolations {
                 + "Types used across concurrency boundaries must conform to Sendable — "
                 + "add `: Sendable` to structs/enums/actors, or use `final class` with all immutable properties.",
             correctionId: "sendable-types",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — type without Sendable conformance
+                    struct UserService {
+                        let repository: UserRepository
+                        let logger: Logger
+
+                        func create(_ request: CreateUserRequest) async throws -> User {
+                            return try await repository.insert(User(email: request.email))
+                        }
+                    }
+
+                    struct AppDependencies {
+                        let userService: UserService  // Not Sendable!
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — Sendable conformance declared
+                    struct UserService: Sendable {
+                        let repository: UserRepository
+                        let logger: Logger
+
+                        func create(_ request: CreateUserRequest) async throws -> User {
+                            return try await repository.insert(User(email: request.email))
+                        }
+                    }
+
+                    struct AppDependencies: Sendable {
+                        let userService: UserService
+                    }
+                    """,
+                explanation: "Types that cross concurrency boundaries (passed between actors, tasks, or async contexts) "
+                    + "must conform to Sendable to guarantee thread-safety. Sendable is a marker protocol checked at compile time. "
+                    + "Structs and enums with all Sendable properties get automatic conformance, but it's best to declare it explicitly. "
+                    + "For classes, use `final class` with only immutable (`let`) properties. Swift 6 strict concurrency mode "
+                    + "enforces this requirement, catching data races at compile time instead of runtime crashes."
+            )
         ),
 
         ArchitecturalViolation(
@@ -1021,7 +1218,44 @@ enum ArchitecturalViolations {
                 + "Detached tasks inherit no isolation and can cause data races — "
                 + "use Task { } for structured concurrency or explicitly annotate isolation with @MainActor.",
             correctionId: "structured-concurrency",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — detached task without isolation
+                    func processInBackground(data: Data) {
+                        Task.detached {
+                            // Inherits no actor context, can cause data races
+                            await self.processor.process(data)
+                            self.updateUI()  // Potential data race!
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — structured concurrency with Task
+                    func processInBackground(data: Data) {
+                        Task {
+                            // Inherits current actor context automatically
+                            await self.processor.process(data)
+                            await MainActor.run {
+                                self.updateUI()  // Safe: explicitly on MainActor
+                            }
+                        }
+                    }
+
+                    // Or if you must detach, annotate isolation explicitly:
+                    func processDetached(data: Data) {
+                        Task.detached { @MainActor in
+                            await processor.process(data)
+                            updateUI()  // Safe: isolated to MainActor
+                        }
+                    }
+                    """,
+                explanation: "Task.detached creates an unstructured task that inherits no actor isolation from its context, "
+                    + "breaking structured concurrency guarantees and creating data race opportunities. Prefer Task { } "
+                    + "which automatically inherits the current actor context and maintains parent-child task relationships "
+                    + "for automatic cancellation. If you must use Task.detached for truly independent work, explicitly "
+                    + "annotate the isolation domain with @MainActor or access actors through await to ensure safety."
+            )
         ),
 
         ArchitecturalViolation(
@@ -1031,7 +1265,53 @@ enum ArchitecturalViolations {
                 + "This attribute disables safety guarantees and can cause data races — "
                 + "use proper actor isolation or Sendable conformance instead of unsafe escapes.",
             correctionId: "actor-for-shared-state",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — using nonisolated(unsafe) to silence warnings
+                    actor CacheStore {
+                        nonisolated(unsafe) var cache: [String: Any] = [:]  // Bypasses safety!
+
+                        func get(_ key: String) -> Any? {
+                            return cache[key]  // Data race potential!
+                        }
+
+                        func set(_ key: String, value: Any) {
+                            cache[key] = value  // Not actually isolated!
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — properly isolated actor state
+                    actor CacheStore {
+                        private var cache: [String: Any] = [:]  // Properly isolated
+
+                        func get(_ key: String) -> Any? {
+                            return cache[key]  // Safe: serialized access
+                        }
+
+                        func set(_ key: String, value: Any) {
+                            cache[key] = value  // Safe: serialized access
+                        }
+                    }
+
+                    // Or use Sendable types if truly immutable:
+                    actor ConfigStore {
+                        nonisolated let staticConfig: Configuration  // Safe: immutable Sendable type
+                        private var dynamicConfig: Configuration
+
+                        init(config: Configuration) {
+                            self.staticConfig = config
+                            self.dynamicConfig = config
+                        }
+                    }
+                    """,
+                explanation: "nonisolated(unsafe) is an escape hatch that tells the compiler 'trust me, I know what I'm doing' "
+                    + "and disables concurrency safety checks. This defeats the entire purpose of Swift 6 strict concurrency mode "
+                    + "and can introduce data races that crash at runtime. Instead, keep mutable state properly isolated within "
+                    + "the actor (remove nonisolated), or use nonisolated only for truly immutable Sendable values. "
+                    + "If you think you need nonisolated(unsafe), you almost certainly need to redesign your concurrency model."
+            )
         ),
 
         // ── Warning: suboptimal patterns ──────────────────────────────────────
@@ -1043,7 +1323,55 @@ enum ArchitecturalViolations {
                 + "without actor protection. In Swift 6 strict concurrency, shared "
                 + "mutable state requires an actor or explicit synchronisation.",
             correctionId: "actor-for-shared-state",
-            severity: .warning
+            severity: .warning,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — shared mutable collection without protection
+                    class SessionManager {
+                        var activeSessions: [String: Session] = [:]  // Data race!
+
+                        func addSession(_ session: Session) {
+                            activeSessions[session.id] = session
+                        }
+
+                        func removeSession(id: String) {
+                            activeSessions.removeValue(forKey: id)
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — actor-protected mutable collection
+                    actor SessionManager {
+                        private var activeSessions: [String: Session] = [:]
+
+                        func addSession(_ session: Session) {
+                            activeSessions[session.id] = session
+                        }
+
+                        func removeSession(id: String) {
+                            activeSessions.removeValue(forKey: id)
+                        }
+
+                        func getSession(id: String) -> Session? {
+                            return activeSessions[id]
+                        }
+                    }
+
+                    // Usage:
+                    router.get("/session/:id") { request, context in
+                        let id = try context.parameters.require("id")
+                        guard let session = await context.dependencies.sessionManager.getSession(id: id) else {
+                            throw HTTPError(.notFound)
+                        }
+                        return SessionResponse(session)
+                    }
+                    """,
+                explanation: "Mutable collections (arrays, dictionaries, sets) shared across concurrent contexts create data races. "
+                    + "Multiple tasks can simultaneously read and write, corrupting data structure invariants and causing crashes. "
+                    + "Swift 6 strict concurrency mode catches this at compile time. Actors provide safe concurrent access — "
+                    + "all mutations are serialized through the actor's executor. Make the collection private within the actor "
+                    + "and expose it only through actor-isolated methods that are accessed with await."
+            )
         ),
 
         ArchitecturalViolation(
