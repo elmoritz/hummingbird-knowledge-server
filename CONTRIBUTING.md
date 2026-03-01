@@ -239,13 +239,115 @@ Create a pull request with:
 
 ---
 
-## Validation Requirements
+## Automated Validation
+
+All pull requests are automatically validated by our GitHub Actions workflow. This ensures that contributions meet quality standards before being merged.
+
+### What Gets Validated Automatically
+
+When you open a pull request, the workflow:
+
+1. **Detects changes** to contribution files in:
+   - `contributions/violations/*.json` — Violation rule submissions
+   - `contributions/knowledge/*.json` — Knowledge entry submissions
+
+2. **Runs validation scripts** on each contribution:
+   - Validates JSON structure and required fields
+   - Checks for duplicate IDs across the knowledge base
+   - Verifies referenced IDs exist (e.g., `correctionId`, `violationIds`)
+   - Tests regex patterns for safety (no catastrophic backtracking)
+   - Validates code examples can compile
+   - Checks semantic version ranges
+
+3. **Posts results** as a PR comment with:
+   - ✅/❌ Status for each file validated
+   - Detailed error messages for failures
+   - A checklist of quality requirements for your contribution type
+
+### Running Validation Locally
+
+**Before submitting your PR**, run validation locally to catch issues early:
+
+#### Validate a Violation Rule
+
+```bash
+swift scripts/validate-violation-rule.swift contributions/violations/your-rule.json
+```
+
+#### Validate a Knowledge Entry
+
+```bash
+swift scripts/validate-knowledge-entry.swift contributions/knowledge/your-entry.json
+```
+
+**Example output:**
+
+```
+✅ Validating: my-new-pattern.json
+
+Checking structure...
+✅ All required fields present
+✅ ID format is valid (kebab-case)
+✅ No duplicate IDs found
+
+Checking references...
+✅ All referenced violations exist
+✅ All referenced patterns exist
+
+Checking code examples...
+✅ Swift code examples compile
+
+✅ Validation passed!
+```
+
+### What to Do If Validation Fails
+
+If the automated validation workflow reports errors:
+
+1. **Read the error message carefully** — The workflow provides specific details about what failed:
+   - Missing required fields
+   - Invalid JSON syntax
+   - Duplicate IDs
+   - Non-existent reference IDs
+   - Regex pattern errors
+   - Invalid semantic version ranges
+
+2. **Fix the issue locally**:
+   ```bash
+   # Make your corrections
+   vim contributions/violations/your-rule.json
+
+   # Re-run validation
+   swift scripts/validate-violation-rule.swift contributions/violations/your-rule.json
+   ```
+
+3. **Push the fix**:
+   ```bash
+   git add contributions/violations/your-rule.json
+   git commit -m "Fix validation errors in your-rule.json"
+   git push
+   ```
+
+4. **Wait for re-validation** — The workflow will automatically re-run on your updated PR
+
+### Common Validation Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Duplicate ID found` | Another entry already uses this ID | Choose a unique ID in kebab-case |
+| `Referenced ID does not exist` | Your `correctionId` or `violationIds` reference missing entries | Verify the ID exists in the knowledge base |
+| `Invalid JSON syntax` | Malformed JSON (missing comma, bracket, etc.) | Use `jq` to validate: `cat file.json \| jq .` |
+| `Invalid regex pattern` | Pattern has catastrophic backtracking or syntax error | Test on [regex101.com](https://regex101.com) with PCRE flavor |
+| `Missing required field` | JSON is missing a required property | Check the field descriptions and add the missing field |
+| `Invalid semantic version` | Version range doesn't follow semver format | Use format like `">=2.0.0"` or `"^2.0.0"` |
+
+### Validation Requirements
 
 All contributions must pass:
 
 1. **Compilation**: `swift build` succeeds
 2. **Tests**: `swift test` passes
-3. **JSON validation**: `knowledge.json` is valid JSON
+3. **JSON validation**: All JSON files are syntactically valid
 4. **No duplicate IDs**: IDs must be unique across all violations and entries
 5. **Referenced IDs exist**:
    - Violation `correctionId` must reference an existing knowledge entry
