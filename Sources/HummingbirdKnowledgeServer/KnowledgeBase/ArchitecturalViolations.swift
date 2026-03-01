@@ -6,6 +6,13 @@
 
 import Foundation
 
+/// A concrete code-level fix suggestion showing before/after examples.
+struct FixSuggestion: Sendable {
+    let before: String          // The anti-pattern code example
+    let after: String           // The corrected code example
+    let explanation: String     // Why the fix is necessary and how it works
+}
+
 /// A rule that identifies an architectural anti-pattern in Hummingbird 2.x code.
 struct ArchitecturalViolation: Sendable {
     let id: String
@@ -13,6 +20,23 @@ struct ArchitecturalViolation: Sendable {
     let description: String
     let correctionId: String    // Knowledge base entry ID for the fix
     let severity: Severity
+    let fixSuggestion: FixSuggestion?
+
+    init(
+        id: String,
+        pattern: String,
+        description: String,
+        correctionId: String,
+        severity: Severity,
+        fixSuggestion: FixSuggestion? = nil
+    ) {
+        self.id = id
+        self.pattern = pattern
+        self.description = description
+        self.correctionId = correctionId
+        self.severity = severity
+        self.fixSuggestion = fixSuggestion
+    }
 
     enum Severity: Sendable {
         case warning    // Suboptimal but not incorrect
