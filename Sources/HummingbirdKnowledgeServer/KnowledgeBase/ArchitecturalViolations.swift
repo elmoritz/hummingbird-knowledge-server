@@ -130,7 +130,42 @@ enum ArchitecturalViolations {
                 + "The service layer must be framework-agnostic. "
                 + "Only controllers, middleware, and Application+build.swift may import Hummingbird.",
             correctionId: "service-layer-no-hummingbird",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — Hummingbird leaked into service layer
+                    import Hummingbird
+
+                    struct UserService {
+                        func create(_ req: Request) async throws -> Response {
+                            let dto = try await req.decode(as: CreateUserRequest.self, context: context)
+                            let user = User(email: dto.email)
+                            try await repository.insert(user)
+                            return Response(status: .created, body: ...)
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — pure Swift service
+                    import Foundation
+
+                    struct UserService {
+                        let repository: any UserRepositoryProtocol
+
+                        func create(_ request: CreateUserRequest) async throws -> User {
+                            guard !request.email.isEmpty else {
+                                throw AppError.invalidInput(reason: "Email must not be empty")
+                            }
+                            return try await repository.insert(User(email: request.email))
+                        }
+                    }
+                    """,
+                explanation: "The service layer encodes business logic independently of any web framework. "
+                    + "No Hummingbird import means the service can be tested without an HTTP context and can be "
+                    + "reused across transports (HTTP, CLI, background jobs). Services should accept domain types "
+                    + "or DTOs as parameters, never Request or Response objects. This keeps your business logic "
+                    + "portable and testable."
+            )
         ),
 
         ArchitecturalViolation(
@@ -357,7 +392,59 @@ enum ArchitecturalViolations {
                 + "Route handlers must be thin dispatchers — all business rules, "
                 + "calculations, and processing logic belongs in the service layer.",
             correctionId: "route-handler-dispatcher-only",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — business logic in handler
+                    router.post("/orders/:id/discount") { request, context in
+                        let id = try context.parameters.require("id")
+                        let order = try await context.dependencies.orderService.find(id: id)
+
+                        // Business logic in handler!
+                        var discountRate = 0.0
+                        if order.totalAmount > 1000 {
+                            discountRate = 0.15
+                        } else if order.totalAmount > 500 {
+                            discountRate = 0.10
+                        } else if order.totalAmount > 100 {
+                            discountRate = 0.05
+                        }
+
+                        let discount = order.totalAmount * discountRate
+                        return DiscountResponse(discount: discount, rate: discountRate)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — business logic in service layer
+                    router.post("/orders/:id/discount") { request, context in
+                        let id = try context.parameters.require("id")
+                        let discount = try await context.dependencies.orderService.calculateDiscount(orderId: id)
+                        return DiscountResponse(discount)
+                    }
+
+                    // In OrderService.swift:
+                    func calculateDiscount(orderId: String) async throws -> Discount {
+                        let order = try await repository.find(id: orderId)
+
+                        let discountRate: Decimal
+                        if order.totalAmount > 1000 {
+                            discountRate = 0.15
+                        } else if order.totalAmount > 500 {
+                            discountRate = 0.10
+                        } else if order.totalAmount > 100 {
+                            discountRate = 0.05
+                        } else {
+                            discountRate = 0.0
+                        }
+
+                        return Discount(amount: order.totalAmount * discountRate, rate: discountRate)
+                    }
+                    """,
+                explanation: "Business rules, calculations, and conditional logic belong in the service layer, not handlers. "
+                    + "Handlers that contain business logic become impossible to test without spinning up an HTTP server, "
+                    + "can't be reused from other transports, and violate single responsibility. Move all business decisions "
+                    + "to services where they can be tested, evolved, and reused independently of HTTP."
+            )
         ),
 
         ArchitecturalViolation(
@@ -367,7 +454,66 @@ enum ArchitecturalViolations {
                 + "Input validation must be handled by DTO decoding conformance "
                 + "or moved to the service layer — handlers should only dispatch.",
             correctionId: "route-handler-dispatcher-only",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — validation in handler
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+
+                        // Validation in handler!
+                        guard !dto.email.isEmpty else {
+                            throw HTTPError(.badRequest, message: "Email required")
+                        }
+                        guard dto.email.contains("@") else {
+                            throw HTTPError(.badRequest, message: "Invalid email")
+                        }
+                        guard dto.password.count >= 8 else {
+                            throw HTTPError(.badRequest, message: "Password too short")
+                        }
+
+                        let user = try await context.dependencies.userService.create(dto)
+                        return CreateUserResponse(user)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — validation in DTO init(from:)
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+                        let user = try await context.dependencies.userService.create(dto)
+                        return CreateUserResponse(user)
+                    }
+
+                    struct CreateUserRequest: Decodable {
+                        let email: String
+                        let password: String
+
+                        init(from decoder: Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            email = try container.decode(String.self, forKey: .email)
+                            password = try container.decode(String.self, forKey: .password)
+
+                            guard !email.isEmpty, email.contains("@") else {
+                                throw DecodingError.dataCorruptedError(
+                                    forKey: .email, in: container,
+                                    debugDescription: "Email must be valid"
+                                )
+                            }
+                            guard password.count >= 8 else {
+                                throw DecodingError.dataCorruptedError(
+                                    forKey: .password, in: container,
+                                    debugDescription: "Password must be at least 8 characters"
+                                )
+                            }
+                        }
+                    }
+                    """,
+                explanation: "Input validation belongs in the DTO's init(from:) method, not in route handlers. "
+                    + "This ensures validation happens automatically during request.decode(), provides clear error "
+                    + "messages at the boundary, and keeps handlers thin. DTOs define the valid shape of input data — "
+                    + "validation is part of that definition. Handlers should only dispatch to services after "
+                    + "validation has already succeeded."
+            )
         ),
 
         ArchitecturalViolation(
@@ -377,7 +523,54 @@ enum ArchitecturalViolations {
                 + "Mapping, filtering, and data formatting belongs in the service layer "
                 + "or DTO conversion — handlers should receive transformed data, not create it.",
             correctionId: "route-handler-dispatcher-only",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — data transformation in handler
+                    router.get("/users/active") { request, context in
+                        let users = try await context.dependencies.userService.listAll()
+
+                        // Data transformation in handler!
+                        let activeUsers = users
+                            .filter { $0.status == .active }
+                            .map { user in
+                                UserSummary(
+                                    id: user.id.uuidString,
+                                    name: "\\(user.firstName) \\(user.lastName)",
+                                    email: user.email
+                                )
+                            }
+
+                        return ActiveUsersResponse(users: activeUsers)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — transformation in service layer
+                    router.get("/users/active") { request, context in
+                        let summaries = try await context.dependencies.userService.listActiveSummaries()
+                        return ActiveUsersResponse(users: summaries)
+                    }
+
+                    // In UserService.swift:
+                    func listActiveSummaries() async throws -> [UserSummary] {
+                        let users = try await repository.findAll()
+                        return users
+                            .filter { $0.status == .active }
+                            .map { user in
+                                UserSummary(
+                                    id: user.id.uuidString,
+                                    name: "\\(user.firstName) \\(user.lastName)",
+                                    email: user.email
+                                )
+                            }
+                    }
+                    """,
+                explanation: "Data transformation logic (filtering, mapping, aggregating) belongs in the service layer, "
+                    + "not in route handlers. Handlers that transform data can't be tested independently, duplicate "
+                    + "transformation logic across endpoints, and violate the dispatcher pattern. Services should "
+                    + "return already-transformed data ready for DTO conversion. This keeps handlers thin and makes "
+                    + "transformation logic reusable across different endpoints."
+            )
         ),
 
         ArchitecturalViolation(
@@ -565,7 +758,54 @@ enum ArchitecturalViolations {
                 + "All configuration must be loaded through a centralized Configuration struct "
                 + "at startup — never access environment variables directly at runtime.",
             correctionId: "centralized-configuration",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — direct environment access at runtime
+                    struct UserService {
+                        func sendEmail(to: String, subject: String) async throws {
+                            let apiKey = ProcessInfo.processInfo.environment["SENDGRID_API_KEY"]!
+                            let sendgrid = SendGridClient(apiKey: apiKey)
+                            try await sendgrid.send(to: to, subject: subject)
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — configuration injected via dependencies
+                    struct AppConfiguration: Sendable {
+                        let sendGridAPIKey: String
+                        let databaseURL: String
+
+                        static func fromEnvironment() throws -> AppConfiguration {
+                            guard let apiKey = ProcessInfo.processInfo.environment["SENDGRID_API_KEY"],
+                                  let dbURL = ProcessInfo.processInfo.environment["DATABASE_URL"],
+                                  !apiKey.isEmpty, !dbURL.isEmpty else {
+                                throw AppError.configurationError(reason: "Missing required environment variables")
+                            }
+                            return AppConfiguration(sendGridAPIKey: apiKey, databaseURL: dbURL)
+                        }
+                    }
+
+                    struct UserService {
+                        let config: AppConfiguration
+                        let emailClient: EmailClient
+
+                        func sendEmail(to: String, subject: String) async throws {
+                            try await emailClient.send(to: to, subject: subject)
+                        }
+                    }
+
+                    // In Application+build.swift:
+                    let config = try AppConfiguration.fromEnvironment()
+                    let emailClient = SendGridClient(apiKey: config.sendGridAPIKey)
+                    let userService = UserService(config: config, emailClient: emailClient)
+                    """,
+                explanation: "Environment variables must be loaded once at application startup through a centralized "
+                    + "Configuration struct, never accessed directly at runtime. This provides a single source of truth, "
+                    + "enables configuration validation at startup (fail fast), makes testing easier (inject test config), "
+                    + "and documents all configuration requirements in one place. Direct environment access scatters "
+                    + "configuration throughout the codebase and makes it impossible to validate or test."
+            )
         ),
 
         ArchitecturalViolation(
@@ -575,7 +815,52 @@ enum ArchitecturalViolations {
                 + "All URLs, endpoints, and external service addresses must be "
                 + "defined in configuration — never hardcoded as string literals.",
             correctionId: "centralized-configuration",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — hardcoded URL
+                    struct PaymentService {
+                        func processPayment(amount: Decimal) async throws {
+                            let apiURL = "https://api.stripe.com/v1/charges"  // Hardcoded!
+                            let request = URLRequest(url: URL(string: apiURL)!)
+                            let (data, _) = try await URLSession.shared.data(for: request)
+                            return try JSONDecoder().decode(PaymentResponse.self, from: data)
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — URL from configuration
+                    struct AppConfiguration: Sendable {
+                        let stripeAPIBaseURL: String
+                        let databaseURL: String
+
+                        static func fromEnvironment() throws -> AppConfiguration {
+                            guard let stripeURL = ProcessInfo.processInfo.environment["STRIPE_API_URL"],
+                                  let dbURL = ProcessInfo.processInfo.environment["DATABASE_URL"],
+                                  !stripeURL.isEmpty, !dbURL.isEmpty else {
+                                throw AppError.configurationError(reason: "Missing required environment variables")
+                            }
+                            return AppConfiguration(stripeAPIBaseURL: stripeURL, databaseURL: dbURL)
+                        }
+                    }
+
+                    struct PaymentService {
+                        let config: AppConfiguration
+
+                        func processPayment(amount: Decimal) async throws {
+                            let apiURL = "\\(config.stripeAPIBaseURL)/v1/charges"
+                            let request = URLRequest(url: URL(string: apiURL)!)
+                            let (data, _) = try await URLSession.shared.data(for: request)
+                            return try JSONDecoder().decode(PaymentResponse.self, from: data)
+                        }
+                    }
+                    """,
+                explanation: "Hardcoded URLs make it impossible to change endpoints between environments (dev, staging, "
+                    + "production) without modifying code. URLs must be loaded from configuration so they can vary by "
+                    + "environment. This enables testing against mock servers, switching between service providers, and "
+                    + "zero-downtime migrations to new endpoints. All external service addresses should be configurable, "
+                    + "never baked into source code."
+            )
         ),
 
         ArchitecturalViolation(
@@ -585,7 +870,57 @@ enum ArchitecturalViolations {
                 + "Secrets must NEVER be committed to code — use environment variables "
                 + "loaded through secure configuration at runtime.",
             correctionId: "secure-configuration",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ CRITICAL SECURITY VULNERABILITY — hardcoded secrets
+                    struct AuthService {
+                        let jwtSecret = "super-secret-key-12345"  // ⚠️ NEVER DO THIS!
+                        let apiKey = "sk_live_abc123def456"       // ⚠️ SECURITY BREACH!
+                        let databasePassword = "mysqlpass123"     // ⚠️ Credentials exposed!
+
+                        func generateToken(userId: String) -> String {
+                            return JWT.sign(payload: ["userId": userId], secret: jwtSecret)
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — secrets from environment
+                    struct AppConfiguration: Sendable {
+                        let jwtSecret: String
+                        let apiKey: String
+                        let databasePassword: String
+
+                        static func fromEnvironment() throws -> AppConfiguration {
+                            guard let jwtSecret = ProcessInfo.processInfo.environment["JWT_SECRET"],
+                                  let apiKey = ProcessInfo.processInfo.environment["API_KEY"],
+                                  let dbPassword = ProcessInfo.processInfo.environment["DATABASE_PASSWORD"],
+                                  !jwtSecret.isEmpty, !apiKey.isEmpty, !dbPassword.isEmpty else {
+                                throw AppError.configurationError(reason: "Required secrets not found in environment")
+                            }
+                            return AppConfiguration(
+                                jwtSecret: jwtSecret,
+                                apiKey: apiKey,
+                                databasePassword: dbPassword
+                            )
+                        }
+                    }
+
+                    struct AuthService {
+                        let config: AppConfiguration
+
+                        func generateToken(userId: String) -> String {
+                            return JWT.sign(payload: ["userId": userId], secret: config.jwtSecret)
+                        }
+                    }
+                    """,
+                explanation: "NEVER hardcode secrets (API keys, passwords, tokens, encryption keys) in source code. "
+                    + "Hardcoded secrets get committed to version control, exposed in logs, leaked in stack traces, "
+                    + "and can't be rotated without code changes. Load all secrets from environment variables at startup, "
+                    + "use secret management services (AWS Secrets Manager, HashiCorp Vault) in production, and NEVER "
+                    + "commit .env files to version control. Use different secrets for dev, staging, and production, "
+                    + "and rotate them regularly."
+            )
         ),
 
         ArchitecturalViolation(
@@ -951,7 +1286,47 @@ enum ArchitecturalViolations {
                 + "Blocking the thread pool with sleep() destroys concurrency performance — "
                 + "use Task.sleep() or await-based delays instead of blocking sleep calls.",
             correctionId: "async-concurrency-patterns",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — blocking sleep in handler
+                    router.post("/process") { request, context in
+                        let dto = try await request.decode(as: ProcessRequest.self, context: context)
+                        try await context.dependencies.processingService.start(dto)
+
+                        // Blocking sleep — destroys concurrency!
+                        sleep(5)  // Blocks the entire thread for 5 seconds!
+
+                        let result = try await context.dependencies.processingService.getResult()
+                        return ProcessResponse(result)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — non-blocking async sleep
+                    router.post("/process") { request, context in
+                        let dto = try await request.decode(as: ProcessRequest.self, context: context)
+                        try await context.dependencies.processingService.start(dto)
+
+                        // Non-blocking async sleep — yields to other tasks
+                        try await Task.sleep(for: .seconds(5))
+
+                        let result = try await context.dependencies.processingService.getResult()
+                        return ProcessResponse(result)
+                    }
+
+                    // Better: use polling or callbacks instead of sleep
+                    router.post("/process") { request, context in
+                        let dto = try await request.decode(as: ProcessRequest.self, context: context)
+                        let jobId = try await context.dependencies.processingService.start(dto)
+                        return ProcessStartedResponse(jobId: jobId, statusURL: "/jobs/\\(jobId)")
+                    }
+                    """,
+                explanation: "Thread.sleep() and sleep() block the cooperative thread pool that Swift's async/await runtime "
+                    + "uses for concurrency. Blocking a thread prevents other async tasks from making progress, destroying "
+                    + "throughput. Use Task.sleep(for:) which suspends the current task without blocking threads, allowing "
+                    + "other work to proceed. Better yet, redesign to use job queues, polling endpoints, or WebSockets "
+                    + "instead of blocking HTTP requests with delays."
+            )
         ),
 
         ArchitecturalViolation(
@@ -1381,7 +1756,46 @@ enum ArchitecturalViolations {
                 + "Context is value-typed (struct) and Sendable — pass it explicitly "
                 + "rather than capturing it across isolation boundaries.",
             correctionId: "request-context-di",
-            severity: .warning
+            severity: .warning,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ⚠️ Suboptimal — context captured across isolation boundary
+                    actor RateLimitStore {
+                        private var requestCounts: [String: Int] = [:]
+
+                        nonisolated func checkLimit(for request: Request, context: AppRequestContext) -> Bool {
+                            let ip = request.remoteAddress?.ipAddress ?? "unknown"
+                            // Accessing context from nonisolated method
+                            context.logger.info("Checking rate limit for \\(ip)")
+                            return true
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — logger passed explicitly
+                    actor RateLimitStore {
+                        private var requestCounts: [String: Int] = [:]
+
+                        nonisolated func checkLimit(for request: Request, logger: Logger) -> Bool {
+                            let ip = request.remoteAddress?.ipAddress ?? "unknown"
+                            logger.info("Checking rate limit for \\(ip)")
+                            return true
+                        }
+                    }
+
+                    // Usage in handler:
+                    router.get("/api/data") { request, context in
+                        let allowed = rateLimitStore.checkLimit(for: request, logger: context.logger)
+                        guard allowed else { throw HTTPError(.tooManyRequests) }
+                        // ...
+                    }
+                    """,
+                explanation: "AppRequestContext is a value type (struct) and is Sendable, so accessing it from nonisolated "
+                    + "contexts is safe but can be inefficient due to copying. More importantly, it's better to pass "
+                    + "only the specific properties you need (like logger) rather than the entire context. This makes "
+                    + "dependencies explicit, improves testability, and avoids unnecessary copying of the context struct "
+                    + "across isolation boundaries."
+            )
         ),
 
         ArchitecturalViolation(
@@ -1392,7 +1806,86 @@ enum ArchitecturalViolations {
                 + "should be defined as named constants or loaded from configuration, "
                 + "not embedded as raw literals.",
             correctionId: "centralized-configuration",
-            severity: .warning
+            severity: .warning,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ⚠️ Suboptimal — magic numbers scattered throughout code
+                    struct DatabaseClient {
+                        func connect() async throws {
+                            let connection = try await pool.connect(
+                                timeout: 30,           // What does 30 mean? Seconds? Milliseconds?
+                                maxConnections: 100,   // Why 100? Can we change it?
+                                port: 5432             // Magic number for PostgreSQL port
+                            )
+                            return connection
+                        }
+                    }
+
+                    struct APIClient {
+                        func fetch() async throws {
+                            let request = URLRequest(url: url)
+                            request.timeoutInterval = 60  // Another magic number
+                            let (data, _) = try await URLSession.shared.data(for: request)
+                            return data
+                        }
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — configuration values defined centrally
+                    struct AppConfiguration: Sendable {
+                        let databaseTimeout: Duration
+                        let databaseMaxConnections: Int
+                        let databasePort: Int
+                        let httpRequestTimeout: TimeInterval
+
+                        static func fromEnvironment() throws -> AppConfiguration {
+                            let dbTimeout = ProcessInfo.processInfo.environment["DB_TIMEOUT"]
+                                .flatMap { Int($0) } ?? 30
+                            let dbMaxConns = ProcessInfo.processInfo.environment["DB_MAX_CONNECTIONS"]
+                                .flatMap { Int($0) } ?? 100
+                            let dbPort = ProcessInfo.processInfo.environment["DB_PORT"]
+                                .flatMap { Int($0) } ?? 5432
+
+                            return AppConfiguration(
+                                databaseTimeout: .seconds(dbTimeout),
+                                databaseMaxConnections: dbMaxConns,
+                                databasePort: dbPort,
+                                httpRequestTimeout: 60.0
+                            )
+                        }
+                    }
+
+                    struct DatabaseClient {
+                        let config: AppConfiguration
+
+                        func connect() async throws {
+                            let connection = try await pool.connect(
+                                timeout: config.databaseTimeout,
+                                maxConnections: config.databaseMaxConnections,
+                                port: config.databasePort
+                            )
+                            return connection
+                        }
+                    }
+
+                    struct APIClient {
+                        let config: AppConfiguration
+
+                        func fetch() async throws {
+                            let request = URLRequest(url: url)
+                            request.timeoutInterval = config.httpRequestTimeout
+                            let (data, _) = try await URLSession.shared.data(for: request)
+                            return data
+                        }
+                    }
+                    """,
+                explanation: "Magic numbers (raw numeric literals for configuration) make code hard to understand and "
+                    + "impossible to tune without code changes. What does '30' mean — seconds? milliseconds? retries? "
+                    + "Named constants document intent, enable environment-specific tuning (different timeouts for dev "
+                    + "vs production), and centralize configuration so you can see all tunables in one place. All "
+                    + "configuration values (timeouts, limits, ports, buffer sizes) should be defined in AppConfiguration "
+                    + "with clear names and loaded from environment variables for flexibility."
+            )
         ),
     ]
 }
