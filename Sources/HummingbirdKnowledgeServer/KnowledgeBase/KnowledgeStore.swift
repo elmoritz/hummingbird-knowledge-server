@@ -51,7 +51,10 @@ actor KnowledgeStore {
 
     // MARK: - Initialisation
 
-    private init(seedEntries: [KnowledgeEntry]) {
+    /// Creates a KnowledgeStore with the given seed entries.
+    /// Exposed as `internal` so tests can create instances with test data.
+    /// Production code should use `loadFromBundle()` instead.
+    init(seedEntries: [KnowledgeEntry]) {
         self.entries = Dictionary(uniqueKeysWithValues: seedEntries.map { ($0.id, $0) })
     }
 

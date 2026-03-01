@@ -40,5 +40,19 @@ let package = Package(
                 .swiftLanguageMode(.v6),
             ]
         ),
+        .testTarget(
+            name: "HummingbirdKnowledgeServerTests",
+            dependencies: [
+                .target(name: "HummingbirdKnowledgeServer"),
+                .product(name: "HummingbirdTesting", package: "hummingbird"),
+            ],
+            path: "Tests/HummingbirdKnowledgeServerTests",
+            resources: [
+                .copy("Fixtures/knowledge-test.json"),
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
     ]
 )
