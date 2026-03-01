@@ -6,11 +6,11 @@
 import MCP
 
 /// All application-level dependencies, assembled once at startup and carried
-/// through every request. All fields are concrete types — this is the composition
-/// boundary where protocols meet implementations.
+/// through every request. The transport field uses the protocol type to enable
+/// dependency injection of different transport implementations (SSE, HTTP, etc.).
 struct AppDependencies: Sendable {
     let mcpServer: Server
-    let transport: HummingbirdSSETransport
+    let transport: HummingbirdTransport
     let knowledgeStore: KnowledgeStore
 
 }
