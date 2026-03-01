@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "011-auto-fix-suggestions-for-violations",
+  "spec": "017-auto-evolving-violation-rules-from-releases",
   "state": "building",
   "subtasks": {
-    "completed": 7,
-    "total": 9,
+    "completed": 11,
+    "total": 17,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Add Fix Suggestions to Violations",
+    "current": "Historical Release Processing",
     "id": null,
-    "total": 9
+    "total": 3
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 9,
-    "started_at": "2026-03-01T21:39:35.041976"
+    "number": 8,
+    "started_at": "2026-03-01T22:41:44.251650"
   },
-  "last_update": "2026-03-01T22:07:37.875494"
+  "last_update": "2026-03-01T23:11:25.002073"
 }
