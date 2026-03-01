@@ -150,7 +150,41 @@ enum ArchitecturalViolations {
                 + "DTOs must be used at every HTTP boundary — domain models must never "
                 + "cross the HTTP layer raw.",
             correctionId: "dtos-at-boundaries",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — domain model returned directly
+                    router.get("/users/:id") { request, context in
+                        let id = try context.parameters.require("id")
+                        let user = try await context.dependencies.userService.find(id: id)
+                        return user  // UserModel crosses HTTP boundary!
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — DTO at the boundary
+                    router.get("/users/:id") { request, context in
+                        let id = try context.parameters.require("id")
+                        let user = try await context.dependencies.userService.find(id: id)
+                        return UserResponse(user)  // Wrapped in DTO
+                    }
+
+                    struct UserResponse: Codable, ResponseCodable {
+                        let id: String
+                        let email: String
+                        let createdAt: Date
+
+                        init(_ user: UserModel) {
+                            self.id = user.id.uuidString
+                            self.email = user.email
+                            self.createdAt = user.createdAt
+                        }
+                    }
+                    """,
+                explanation: "Domain models contain internal implementation details and can change as your domain evolves. "
+                    + "DTOs provide a stable public contract independent of internal model changes. They also let you "
+                    + "control exactly what data is exposed (hiding sensitive fields) and how it's formatted (date formats, "
+                    + "ID representations, etc.). Always convert domain models to DTOs before returning from route handlers."
+            )
         ),
 
         ArchitecturalViolation(
@@ -160,7 +194,41 @@ enum ArchitecturalViolations {
                 + "DTOs must be used at every HTTP boundary — domain entities must never "
                 + "cross the HTTP layer raw.",
             correctionId: "dtos-at-boundaries",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — domain entity returned directly
+                    router.get("/products/:id") { request, context in
+                        let id = try context.parameters.require("id")
+                        let product = try await context.dependencies.productService.find(id: id)
+                        return product  // ProductEntity crosses HTTP boundary!
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — DTO at the boundary
+                    router.get("/products/:id") { request, context in
+                        let id = try context.parameters.require("id")
+                        let product = try await context.dependencies.productService.find(id: id)
+                        return ProductResponse(product)  // Wrapped in DTO
+                    }
+
+                    struct ProductResponse: Codable, ResponseCodable {
+                        let id: String
+                        let name: String
+                        let price: Decimal
+
+                        init(_ entity: ProductEntity) {
+                            self.id = entity.id.uuidString
+                            self.name = entity.name
+                            self.price = entity.price
+                        }
+                    }
+                    """,
+                explanation: "Domain entities represent database records and often contain ORM metadata, internal state, "
+                    + "and relationships that shouldn't be exposed through the API. DTOs create a clean separation between "
+                    + "your internal data model and your public API contract, preventing accidental exposure of internal details "
+                    + "and allowing your domain model to evolve without breaking API clients."
+            )
         ),
 
         ArchitecturalViolation(
@@ -170,7 +238,41 @@ enum ArchitecturalViolations {
                 + "DTOs must be used at every HTTP boundary — convert domain models to DTOs "
                 + "before returning from route handlers.",
             correctionId: "dtos-at-boundaries",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — array of domain models returned directly
+                    router.get("/users") { request, context in
+                        let users = try await context.dependencies.userService.listAll()
+                        return users  // [UserModel] crosses HTTP boundary!
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — array mapped to DTOs
+                    router.get("/users") { request, context in
+                        let users = try await context.dependencies.userService.listAll()
+                        return UserListResponse(users: users.map(UserResponse.init))
+                    }
+
+                    struct UserListResponse: Codable, ResponseCodable {
+                        let users: [UserResponse]
+                    }
+
+                    struct UserResponse: Codable, ResponseCodable {
+                        let id: String
+                        let email: String
+
+                        init(_ user: UserModel) {
+                            self.id = user.id.uuidString
+                            self.email = user.email
+                        }
+                    }
+                    """,
+                explanation: "Returning arrays of domain models directly exposes internal structure and couples your API "
+                    + "to your domain model. Always map collections to DTOs using .map(). Consider wrapping arrays in a "
+                    + "response object (e.g., UserListResponse) to allow future pagination metadata or other fields without "
+                    + "breaking the API contract."
+            )
         ),
 
         ArchitecturalViolation(
@@ -180,7 +282,46 @@ enum ArchitecturalViolations {
                 + "DTOs must be used at HTTP boundaries — decode to a DTO, "
                 + "then convert to domain model in the service layer.",
             correctionId: "dtos-at-boundaries",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — domain model in request.decode
+                    router.post("/users") { request, context in
+                        let user = try await request.decode(as: UserModel.self, context: context)
+                        return try await context.dependencies.userService.create(user)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — DTO in request.decode
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+                        let user = try await context.dependencies.userService.create(dto)
+                        return CreateUserResponse(user)
+                    }
+
+                    struct CreateUserRequest: Decodable {
+                        let email: String
+                        let password: String
+
+                        init(from decoder: Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            email = try container.decode(String.self, forKey: .email)
+                            password = try container.decode(String.self, forKey: .password)
+
+                            guard email.contains("@") else {
+                                throw DecodingError.dataCorruptedError(
+                                    forKey: .email, in: container,
+                                    debugDescription: "Email must be valid"
+                                )
+                            }
+                        }
+                    }
+                    """,
+                explanation: "Decoding directly into domain models bypasses validation and couples your HTTP layer to your "
+                    + "domain layer. DTOs let you validate input at the boundary, provide clear API contracts, and keep domain "
+                    + "models internal. The DTO's init(from:) method is the perfect place for input validation, rejecting invalid "
+                    + "requests before they reach your service layer."
+            )
         ),
 
         ArchitecturalViolation(
@@ -220,7 +361,35 @@ enum ArchitecturalViolations {
                 + "Handlers that accept request bodies must decode them into DTOs "
                 + "for type safety and validation — never parse request data manually.",
             correctionId: "dtos-at-boundaries",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — no request.decode, manual parsing
+                    router.post("/users") { request, context in
+                        let body = request.body.buffer
+                        let json = try JSONSerialization.jsonObject(with: Data(buffer: body))
+                        // Manual parsing is error-prone and unvalidated
+                        return try await context.dependencies.userService.create(...)
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — request.decode with DTO
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+                        let user = try await context.dependencies.userService.create(dto)
+                        return CreateUserResponse(user)
+                    }
+
+                    struct CreateUserRequest: Decodable {
+                        let email: String
+                        let password: String
+                    }
+                    """,
+                explanation: "Manual JSON parsing is error-prone, verbose, and bypasses type safety. Using request.decode() "
+                    + "with a DTO gives you automatic validation, type checking, and clear documentation of what the endpoint "
+                    + "expects. The Decodable protocol handles all the parsing for you, and custom init(from:) lets you add "
+                    + "validation rules at the boundary."
+            )
         ),
 
         ArchitecturalViolation(
@@ -230,7 +399,28 @@ enum ArchitecturalViolations {
                 + "URI paths must be validated before use — either through route parameter "
                 + "binding with type constraints or explicit validation in DTOs.",
             correctionId: "request-validation-via-dto",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — unchecked URI path access
+                    router.get("/users/:id") { request, context in
+                        let path = request.uri.path
+                        let id = path.split(separator: "/").last  // Unsafe parsing!
+                        return try await context.dependencies.userService.find(id: String(id ?? ""))
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — validated route parameter
+                    router.get("/users/:id") { request, context in
+                        let id = try context.parameters.require("id", as: String.self)
+                        return try await context.dependencies.userService.find(id: id)
+                    }
+                    """,
+                explanation: "Manually parsing URI paths is fragile and bypasses Hummingbird's route parameter validation. "
+                    + "Use route parameter placeholders (e.g., :id) and context.parameters.require() to safely extract and "
+                    + "validate path parameters. This ensures type safety, provides clear error messages for invalid requests, "
+                    + "and documents what the route expects."
+            )
         ),
 
         ArchitecturalViolation(
@@ -240,7 +430,54 @@ enum ArchitecturalViolations {
                 + "Query parameters must be validated through DTO decoding — "
                 + "never access queryParameters dictionary directly and pass raw values to services.",
             correctionId: "request-validation-via-dto",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — unchecked query parameter access
+                    router.get("/users") { request, context in
+                        let page = request.uri.queryParameters["page"] ?? "1"
+                        let limit = request.uri.queryParameters["limit"] ?? "10"
+                        // No validation, unsafe parsing
+                        return try await context.dependencies.userService.list(
+                            page: Int(page) ?? 1,
+                            limit: Int(limit) ?? 10
+                        )
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — query parameters validated via DTO
+                    router.get("/users") { request, context in
+                        let query = try await request.decode(as: ListUsersQuery.self, context: context)
+                        let users = try await context.dependencies.userService.list(
+                            page: query.page,
+                            limit: query.limit
+                        )
+                        return UserListResponse(users: users.map(UserResponse.init))
+                    }
+
+                    struct ListUsersQuery: Decodable {
+                        let page: Int
+                        let limit: Int
+
+                        init(from decoder: Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            page = try container.decodeIfPresent(Int.self, forKey: .page) ?? 1
+                            limit = try container.decodeIfPresent(Int.self, forKey: .limit) ?? 10
+
+                            guard limit > 0, limit <= 100 else {
+                                throw DecodingError.dataCorruptedError(
+                                    forKey: .limit, in: container,
+                                    debugDescription: "Limit must be between 1 and 100"
+                                )
+                            }
+                        }
+                    }
+                    """,
+                explanation: "Accessing query parameters directly from request.uri.queryParameters bypasses validation and "
+                    + "type safety. Define a query DTO that decodes and validates all query parameters in one place. This "
+                    + "ensures invalid input is rejected early, provides clear error messages, and documents what query "
+                    + "parameters the endpoint accepts. Use init(from:) to add validation rules and sensible defaults."
+            )
         ),
 
         ArchitecturalViolation(
@@ -250,7 +487,49 @@ enum ArchitecturalViolations {
                 + "All request data must be validated and converted to DTOs before "
                 + "passing to the service layer — services must not receive raw Request objects.",
             correctionId: "request-validation-via-dto",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — raw request properties passed to service
+                    router.post("/users") { request, context in
+                        let result = try await context.dependencies.userService.create(
+                            email: request.uri.queryParameters["email"],
+                            auth: request.headers[.authorization]
+                        )
+                        return result
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — validated DTO passed to service
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+                        let user = try await context.dependencies.userService.create(dto)
+                        return CreateUserResponse(user)
+                    }
+
+                    struct CreateUserRequest: Decodable {
+                        let email: String
+                        let password: String
+
+                        init(from decoder: Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            email = try container.decode(String.self, forKey: .email)
+                            password = try container.decode(String.self, forKey: .password)
+
+                            guard email.contains("@") else {
+                                throw DecodingError.dataCorruptedError(
+                                    forKey: .email, in: container,
+                                    debugDescription: "Email must be valid"
+                                )
+                            }
+                        }
+                    }
+                    """,
+                explanation: "Services must be framework-agnostic and should never receive raw HTTP Request objects or their "
+                    + "properties. This couples the service layer to Hummingbird and makes testing difficult. Always decode "
+                    + "request data into a validated DTO in the handler, then pass the DTO to the service. This maintains "
+                    + "clean separation of concerns and keeps services independently testable."
+            )
         ),
 
         ArchitecturalViolation(
@@ -350,7 +629,43 @@ enum ArchitecturalViolations {
                 + "All HTTP responses must use structured DTOs for consistency — "
                 + "never return raw strings or manually constructed JSON in Response bodies.",
             correctionId: "dtos-at-boundaries",
-            severity: .error
+            severity: .error,
+            fixSuggestion: FixSuggestion(
+                before: """
+                    // ❌ Wrong — hardcoded string response
+                    router.post("/users") { request, context in
+                        let user = try await context.dependencies.userService.create(...)
+                        return Response(
+                            status: .created,
+                            body: .init(byteBuffer: ByteBuffer(string: "{\\"id\\":\\"123\\"}"))
+                        )
+                    }
+                    """,
+                after: """
+                    // ✅ Correct — structured DTO response
+                    router.post("/users") { request, context in
+                        let dto = try await request.decode(as: CreateUserRequest.self, context: context)
+                        let user = try await context.dependencies.userService.create(dto)
+                        return CreateUserResponse(user)
+                    }
+
+                    struct CreateUserResponse: Codable, ResponseCodable {
+                        let id: String
+                        let email: String
+                        let createdAt: Date
+
+                        init(_ user: UserModel) {
+                            self.id = user.id.uuidString
+                            self.email = user.email
+                            self.createdAt = user.createdAt
+                        }
+                    }
+                    """,
+                explanation: "Manually constructing JSON strings is error-prone, inconsistent, and bypasses type safety. "
+                    + "Always use ResponseCodable DTOs that automatically encode to JSON. This ensures consistent response "
+                    + "formats, proper content-type headers, correct JSON encoding (dates, optionals, etc.), and compile-time "
+                    + "verification of your response structure."
+            )
         ),
 
         ArchitecturalViolation(
