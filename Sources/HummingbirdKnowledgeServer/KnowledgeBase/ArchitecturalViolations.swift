@@ -7,7 +7,7 @@
 import Foundation
 
 /// A concrete code-level fix suggestion showing before/after examples.
-struct FixSuggestion: Sendable {
+struct FixSuggestion: Sendable, Codable {
     let before: String          // The anti-pattern code example
     let after: String           // The corrected code example
     let explanation: String     // Why the fix is necessary and how it works
