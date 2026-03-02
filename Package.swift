@@ -22,6 +22,14 @@ let package = Package(
             url: "https://github.com/swift-server/swift-service-lifecycle.git",
             from: "2.0.0"
         ),
+        .package(
+            url: "https://github.com/apple/swift-metrics.git",
+            from: "2.0.0"
+        ),
+        .package(
+            url: "https://github.com/swift-server/swift-prometheus.git",
+            from: "2.0.0"
+        ),
     ],
     targets: [
         .executableTarget(
@@ -31,6 +39,8 @@ let package = Package(
                 .product(name: "MCP", package: "swift-sdk"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+                .product(name: "CoreMetrics", package: "swift-metrics"),
+                .product(name: "Prometheus", package: "swift-prometheus"),
             ],
             path: "Sources/HummingbirdKnowledgeServer",
             resources: [
