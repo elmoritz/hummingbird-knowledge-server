@@ -33,7 +33,6 @@ struct ChangelogParser: Sendable {
 
         // Track if we're inside a deprecation/breaking changes section
         var inDeprecationSection = false
-        var currentSection = ""
 
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -41,14 +40,12 @@ struct ChangelogParser: Sendable {
             // Check for deprecation section headers
             if isDeprecationSectionHeader(trimmed) {
                 inDeprecationSection = true
-                currentSection = trimmed
                 continue
             }
 
             // Exit deprecation section if we hit a new non-deprecation section
             if trimmed.hasPrefix("##") && !isDeprecationSectionHeader(trimmed) {
                 inDeprecationSection = false
-                currentSection = ""
             }
 
             // Parse deprecation patterns from the line
