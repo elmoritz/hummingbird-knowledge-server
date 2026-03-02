@@ -210,11 +210,19 @@ func buildApplication(
         return ["status": "ok", "knowledgeEntries": "\(count)"]
     }
     router.get("/metrics") { _, context in
+        // Update knowledge base metrics before export
         let count = await context.dependencies.knowledgeStore.count
-        return [
-            "knowledgeEntries": "\(count)",
-            "status": "ok"
-        ]
+        await context.dependencies.metricsCollector.updateKnowledgeBaseStats(entryCount: count)
+
+        // Export metrics in Prometheus text format
+        let exporter = PrometheusExporter(metricsCollector: context.dependencies.metricsCollector)
+        let prometheusText = await exporter.export()
+
+        return Response(
+            status: .ok,
+            headers: [.contentType: "text/plain; version=0.0.4"],
+            body: .init(byteBuffer: ByteBuffer(string: prometheusText))
+        )
     }
 
     // The MCP endpoint — single path, GET (SSE stream) + POST (messages)
