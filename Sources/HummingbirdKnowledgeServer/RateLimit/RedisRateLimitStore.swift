@@ -19,12 +19,12 @@ import NIOCore
 /// For single-instance deployments, use InMemoryRateLimitStore for better performance.
 actor RedisRateLimitStore: RateLimitStore {
 
-    private let redis: RedisConnection
+    private let redis: any RedisClient
 
-    /// Initialize with a Redis connection.
+    /// Initialize with a Redis client.
     ///
-    /// - Parameter redis: An active Redis connection to use for rate limiting operations.
-    init(redis: RedisConnection) {
+    /// - Parameter redis: An active Redis client to use for rate limiting operations.
+    init(redis: any RedisClient) {
         self.redis = redis
     }
 
