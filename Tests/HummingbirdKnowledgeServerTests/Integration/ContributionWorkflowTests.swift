@@ -11,10 +11,20 @@ import XCTest
 
 final class ContributionWorkflowTests: XCTestCase {
 
+    // Derive the package root from this source file's compile-time path so
+    // scripts can be located regardless of the test binary's working directory.
+    private static let packageRoot: URL = {
+        URL(fileURLWithPath: #filePath)       // .../Integration/ContributionWorkflowTests.swift
+            .deletingLastPathComponent()       // .../Integration/
+            .deletingLastPathComponent()       // .../HummingbirdKnowledgeServerTests/
+            .deletingLastPathComponent()       // .../Tests/
+            .deletingLastPathComponent()       // package root
+    }()
+
     var tempDir: URL!
-    let violationValidatorPath = "./scripts/validate-violation-rule.swift"
-    let knowledgeValidatorPath = "./scripts/validate-knowledge-entry.swift"
-    let checklistGeneratorPath = "./scripts/generate-pr-checklist.swift"
+    var violationValidatorPath: String { Self.packageRoot.appendingPathComponent("scripts/validate-violation-rule.swift").path }
+    var knowledgeValidatorPath: String { Self.packageRoot.appendingPathComponent("scripts/validate-knowledge-entry.swift").path }
+    var checklistGeneratorPath: String { Self.packageRoot.appendingPathComponent("scripts/generate-pr-checklist.swift").path }
 
     override func setUp() {
         super.setUp()
@@ -32,8 +42,9 @@ final class ContributionWorkflowTests: XCTestCase {
 
     private func runScript(scriptPath: String, arguments: [String] = []) -> (exitCode: Int32, output: String) {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
-        process.arguments = [scriptPath] + arguments
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["swift", scriptPath] + arguments
+        process.currentDirectoryURL = Self.packageRoot
 
         let pipe = Pipe()
         process.standardOutput = pipe
