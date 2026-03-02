@@ -312,6 +312,7 @@ final class AutoEvolvingRulesTests: XCTestCase {
 
     // MARK: - Simulated Update Service Test
 
+    #if canImport(Darwin)
     func testEndToEnd_SimulateUpdateServiceWorkflow() async throws {
         // Simulate the complete KnowledgeUpdateService workflow
 
@@ -413,10 +414,12 @@ final class AutoEvolvingRulesTests: XCTestCase {
             // Silently ignore errors (matching the service behavior)
         }
     }
+    #endif
 }
 
 // MARK: - Mock URL Protocol
 
+#if canImport(Darwin)
 /// Custom URLProtocol for intercepting and mocking network requests in tests
 private class MockURLProtocol: URLProtocol {
 
@@ -450,3 +453,4 @@ private class MockURLProtocol: URLProtocol {
         // No-op
     }
 }
+#endif

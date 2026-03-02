@@ -213,7 +213,7 @@ final class ListPitfallsToolTests: XCTestCase {
 
         if case .text(let message) = result.content[0] {
             // Count numbered items in knowledge base section
-            let matches = message.ranges(of: /\d+\. \*\*/)
+            _ = message.ranges(of: /\d+\. \*\*/)
             // Should have violations + pitfalls, but pitfalls limited to 5
             XCTAssertTrue(message.contains("Pitfall"))
         }
