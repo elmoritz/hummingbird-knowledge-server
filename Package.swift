@@ -30,6 +30,10 @@ let package = Package(
             url: "https://github.com/swift-server/swift-prometheus.git",
             from: "2.0.0"
         ),
+        .package(
+            url: "https://github.com/swift-server/RediStack.git",
+            from: "1.6.0"
+        ),
     ],
     targets: [
         .executableTarget(
@@ -41,6 +45,7 @@ let package = Package(
                 .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
                 .product(name: "CoreMetrics", package: "swift-metrics"),
                 .product(name: "Prometheus", package: "swift-prometheus"),
+                .product(name: "RediStack", package: "RediStack"),
             ],
             path: "Sources/HummingbirdKnowledgeServer",
             resources: [
