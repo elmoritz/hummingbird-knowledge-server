@@ -605,15 +605,3 @@ private class MockURLProtocol: URLProtocol {
 
 // MARK: - Mock Alert Hook
 
-/// Mock AlertHook for testing that captures triggered alerts
-private actor MockAlertHook: AlertHook {
-    private(set) var triggeredEvents: [AlertEvent] = []
-
-    func trigger(event: AlertEvent) async {
-        triggeredEvents.append(event)
-    }
-
-    func reset() {
-        triggeredEvents.removeAll()
-    }
-}

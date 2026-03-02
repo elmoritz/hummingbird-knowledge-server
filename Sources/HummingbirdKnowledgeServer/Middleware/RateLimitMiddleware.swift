@@ -17,10 +17,12 @@ struct RateLimitMiddleware: RouterMiddleware {
 
     private let store: RateLimitStore
     private let requestsPerMinute: Int
+    private let alertHook: AlertHook
 
-    init(store: RateLimitStore, requestsPerMinute: Int) {
+    init(store: RateLimitStore, requestsPerMinute: Int, alertHook: AlertHook) {
         self.store = store
         self.requestsPerMinute = requestsPerMinute
+        self.alertHook = alertHook
     }
 
     func handle(
@@ -51,6 +53,7 @@ struct RateLimitMiddleware: RouterMiddleware {
                 "Rate limit exceeded",
                 metadata: ["clientIP": "\(clientIP)", "limit": "\(requestsPerMinute)/min"]
             )
+            await alertHook.trigger(event: .rateLimitExhaustion(clientIP: clientIP, limit: requestsPerMinute))
             throw HTTPError(
                 .init(code: 429),
                 message: "Rate limit exceeded. Maximum \(requestsPerMinute) requests per minute."

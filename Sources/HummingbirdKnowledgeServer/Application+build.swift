@@ -139,6 +139,16 @@ func buildApplication(
         metricsCollector: metricsCollector
     )
 
+    // ── Alert Hook ────────────────────────────────────────────────────────────
+    // Build alert hook for operational alerts (rate limit exhaustion, knowledge update failures, etc.)
+    let alertLogger = Logger(label: "com.hummingbird-knowledge-server.alerts")
+    let alertHook: AlertHook = if let webhookURLString = configuration.alertWebhookURL,
+                                   let webhookURL = URL(string: webhookURLString) {
+        WebhookAlertHook(webhookURL: webhookURL, logger: alertLogger)
+    } else {
+        LogAlertHook(logger: alertLogger)
+    }
+
     // ── Router ────────────────────────────────────────────────────────────────
     let router = Router(context: AppRequestContext.self)
 
@@ -153,7 +163,7 @@ func buildApplication(
         logger.info("Auth middleware active")
     }
     if let store = rateLimitStore, let limit = configuration.rateLimitPerMinute {
-        router.add(middleware: RateLimitMiddleware(store: store, requestsPerMinute: limit))
+        router.add(middleware: RateLimitMiddleware(store: store, requestsPerMinute: limit, alertHook: alertHook))
         logger.info("Rate limiting active", metadata: ["requestsPerMinute": "\(limit)"])
     }
 
@@ -244,15 +254,6 @@ func buildApplication(
                 logger: Logger(label: "com.hummingbird-knowledge-server.mcp.http")
             )
         )
-    }
-
-    // Build alert hook for knowledge update failures
-    let alertLogger = Logger(label: "com.hummingbird-knowledge-server.alerts")
-    let alertHook: AlertHook = if let webhookURLString = configuration.alertWebhookURL,
-                                   let webhookURL = URL(string: webhookURLString) {
-        WebhookAlertHook(webhookURL: webhookURL, logger: alertLogger)
-    } else {
-        LogAlertHook(logger: alertLogger)
     }
 
     services.append(

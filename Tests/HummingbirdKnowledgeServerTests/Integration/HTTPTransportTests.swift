@@ -391,7 +391,8 @@ extension HTTPTransportTests {
             router.add(middleware: AuthMiddleware(token: "test-token"))
         }
         if enableRateLimit {
-            router.add(middleware: RateLimitMiddleware(store: InMemoryRateLimitStore(), requestsPerMinute: 10))
+            let alertHook = MockAlertHook()
+            router.add(middleware: RateLimitMiddleware(store: InMemoryRateLimitStore(), requestsPerMinute: 10, alertHook: alertHook))
         }
 
         // Infrastructure endpoints

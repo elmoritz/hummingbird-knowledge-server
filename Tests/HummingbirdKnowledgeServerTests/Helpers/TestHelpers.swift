@@ -12,6 +12,21 @@ import XCTest
 
 @testable import HummingbirdKnowledgeServer
 
+// MARK: - Mock Alert Hook
+
+/// Mock alert hook for testing. Records all triggered events.
+actor MockAlertHook: AlertHook {
+    private(set) var triggeredEvents: [AlertEvent] = []
+
+    func trigger(event: AlertEvent) async {
+        triggeredEvents.append(event)
+    }
+
+    func reset() {
+        triggeredEvents.removeAll()
+    }
+}
+
 // MARK: - Test Application Builder
 
 /// Builds a fully configured test application with test dependencies.
@@ -90,7 +105,8 @@ func buildTestApplication(
         router.add(middleware: AuthMiddleware(token: "test-token"))
     }
     if enableRateLimit {
-        router.add(middleware: RateLimitMiddleware(store: InMemoryRateLimitStore(), requestsPerMinute: 10))
+        let alertHook = MockAlertHook()
+        router.add(middleware: RateLimitMiddleware(store: InMemoryRateLimitStore(), requestsPerMinute: 10, alertHook: alertHook))
     }
 
     // Infrastructure endpoints
