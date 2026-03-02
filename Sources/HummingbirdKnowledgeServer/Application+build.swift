@@ -15,6 +15,9 @@ import Hummingbird
 import MCP
 import Logging
 import ServiceLifecycle
+@preconcurrency import RediStack
+import NIOCore
+import NIOPosix
 
 func buildApplication(
     configuration: AppConfiguration
@@ -91,6 +94,42 @@ func buildApplication(
     // ── Metrics ───────────────────────────────────────────────────────────────
     let metricsCollector = MetricsCollector()
 
+    // ── Rate Limit Store ──────────────────────────────────────────────────────
+    // Use Redis-backed store for distributed rate limiting if Redis is configured,
+    // otherwise fall back to in-memory store for single-instance deployments.
+    let rateLimitStore: (any RateLimitStore)?
+    if configuration.rateLimitPerMinute != nil {
+        if let redisHost = configuration.redisHost, let redisPort = configuration.redisPort {
+            // Redis is configured — use distributed rate limiting
+            let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+            let redis = try await RedisConnection.make(
+                configuration: try .init(
+                    hostname: redisHost,
+                    port: redisPort,
+                    password: configuration.redisPassword
+                ),
+                boundEventLoop: eventLoopGroup.next()
+            ).get()
+
+            // Select database if configured (defaults to 0)
+            if let database = configuration.redisDatabase, database != 0 {
+                _ = try await redis.select(database: database).get()
+            }
+
+            rateLimitStore = RedisRateLimitStore(redis: redis)
+            logger.info("Redis rate limit store initialized", metadata: [
+                "host": "\(redisHost)",
+                "port": "\(redisPort)"
+            ])
+        } else {
+            // No Redis configured — use in-memory rate limiting
+            rateLimitStore = InMemoryRateLimitStore()
+            logger.info("In-memory rate limit store initialized")
+        }
+    } else {
+        rateLimitStore = nil
+    }
+
     // ── Dependencies ──────────────────────────────────────────────────────────
     let dependencies = AppDependencies(
         mcpServer: mcpServer,
@@ -112,8 +151,8 @@ func buildApplication(
         router.add(middleware: AuthMiddleware(token: token))
         logger.info("Auth middleware active")
     }
-    if let limit = configuration.rateLimitPerMinute {
-        router.add(middleware: RateLimitMiddleware(store: InMemoryRateLimitStore(), requestsPerMinute: limit))
+    if let store = rateLimitStore, let limit = configuration.rateLimitPerMinute {
+        router.add(middleware: RateLimitMiddleware(store: store, requestsPerMinute: limit))
         logger.info("Rate limiting active", metadata: ["requestsPerMinute": "\(limit)"])
     }
 
