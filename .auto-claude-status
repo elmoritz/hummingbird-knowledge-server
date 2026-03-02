@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "017-auto-evolving-violation-rules-from-releases",
-  "state": "building",
+  "spec": "009-monitoring-observability-distributed-rate-limiting",
+  "state": "planning",
   "subtasks": {
-    "completed": 16,
-    "total": 17,
+    "completed": 0,
+    "total": 0,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Integration & Verification",
+    "current": "Metrics Infrastructure",
     "id": null,
-    "total": 3
+    "total": 8
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 13,
-    "started_at": "2026-03-01T22:41:44.251650"
+    "number": 2,
+    "started_at": "2026-03-02T01:23:52.544335"
   },
-  "last_update": "2026-03-01T23:33:12.620324"
+  "last_update": "2026-03-02T01:29:02.890479"
 }
