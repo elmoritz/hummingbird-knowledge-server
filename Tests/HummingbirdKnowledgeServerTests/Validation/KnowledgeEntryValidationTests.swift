@@ -11,8 +11,16 @@ import XCTest
 
 final class KnowledgeEntryValidationTests: XCTestCase {
 
+    private static let packageRoot: URL = {
+        URL(fileURLWithPath: #filePath)   // .../Validation/KnowledgeEntryValidationTests.swift
+            .deletingLastPathComponent()   // .../Validation/
+            .deletingLastPathComponent()   // .../HummingbirdKnowledgeServerTests/
+            .deletingLastPathComponent()   // .../Tests/
+            .deletingLastPathComponent()   // package root
+    }()
+
     var tempDir: URL!
-    let scriptPath = "./scripts/validate-knowledge-entry.swift"
+    var scriptPath: String { Self.packageRoot.appendingPathComponent("scripts/validate-knowledge-entry.swift").path }
 
     override func setUp() {
         super.setUp()
@@ -30,9 +38,10 @@ final class KnowledgeEntryValidationTests: XCTestCase {
 
     private func runValidator(on filePath: String, skipCompile: Bool = true) -> (exitCode: Int32, output: String) {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.currentDirectoryURL = Self.packageRoot
 
-        var args = [scriptPath, filePath]
+        var args = ["swift", scriptPath, filePath]
         if skipCompile {
             args.append("--skip-compile")
         }
@@ -494,8 +503,9 @@ final class KnowledgeEntryValidationTests: XCTestCase {
 
     func testHelpFlag_ShowsUsage() {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
-        process.arguments = [scriptPath, "--help"]
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.currentDirectoryURL = Self.packageRoot
+        process.arguments = ["swift", scriptPath, "--help"]
 
         let pipe = Pipe()
         process.standardOutput = pipe

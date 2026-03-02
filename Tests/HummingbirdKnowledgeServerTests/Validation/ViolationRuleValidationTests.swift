@@ -11,8 +11,16 @@ import XCTest
 
 final class ViolationRuleValidationTests: XCTestCase {
 
+    private static let packageRoot: URL = {
+        URL(fileURLWithPath: #filePath)   // .../Validation/ViolationRuleValidationTests.swift
+            .deletingLastPathComponent()   // .../Validation/
+            .deletingLastPathComponent()   // .../HummingbirdKnowledgeServerTests/
+            .deletingLastPathComponent()   // .../Tests/
+            .deletingLastPathComponent()   // package root
+    }()
+
     var tempDir: URL!
-    let scriptPath = "./scripts/validate-violation-rule.swift"
+    var scriptPath: String { Self.packageRoot.appendingPathComponent("scripts/validate-violation-rule.swift").path }
 
     override func setUp() {
         super.setUp()
@@ -30,8 +38,9 @@ final class ViolationRuleValidationTests: XCTestCase {
 
     private func runValidator(on filePath: String) -> (exitCode: Int32, output: String) {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
-        process.arguments = [scriptPath, filePath]
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.currentDirectoryURL = Self.packageRoot
+        process.arguments = ["swift", scriptPath, filePath]
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -362,8 +371,9 @@ final class ViolationRuleValidationTests: XCTestCase {
 
     func testHelpFlag_ShowsUsage() {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
-        process.arguments = [scriptPath, "--help"]
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.currentDirectoryURL = Self.packageRoot
+        process.arguments = ["swift", scriptPath, "--help"]
 
         let pipe = Pipe()
         process.standardOutput = pipe
