@@ -1,5 +1,5 @@
 {
-  "originHash" : "ab514d6042be474d3b4c147fc84d1b8a6c2e1a2f590dde40a6af0813a8b38be7",
+  "originHash" : "d3f07551cde0e08138090b0ea282a220cb110382d499109a4928303e63fc5751",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -26,6 +26,15 @@
       "state" : {
         "revision" : "328a211b3bdc8bdd41a40a3d4112ed6b79358fa4",
         "version" : "2.20.1"
+      }
+    },
+    {
+      "identity" : "redistack",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swift-server/RediStack.git",
+      "state" : {
+        "revision" : "8c4ce10883e405cdbde52855f97f1ec9468c889b",
+        "version" : "1.6.3"
       }
     },
     {
