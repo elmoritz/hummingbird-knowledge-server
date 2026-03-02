@@ -59,6 +59,7 @@ final class KnowledgeUpdateServiceTests: XCTestCase {
 
     // MARK: - GitHub Release Update Tests
 
+    #if canImport(Darwin)
     func testGitHubReleaseUpdateCreatesEntry() async throws {
         // Configure mock URL session
         let config = URLSessionConfiguration.ephemeral
@@ -560,10 +561,12 @@ final class KnowledgeUpdateServiceTests: XCTestCase {
             // Silently ignore errors (non-critical check)
         }
     }
+    #endif
 }
 
 // MARK: - Mock URL Protocol
 
+#if canImport(Darwin)
 /// Custom URLProtocol for intercepting and mocking network requests in tests
 private class MockURLProtocol: URLProtocol {
 
@@ -597,3 +600,4 @@ private class MockURLProtocol: URLProtocol {
         // No-op
     }
 }
+#endif
