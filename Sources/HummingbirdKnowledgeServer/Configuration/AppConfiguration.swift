@@ -38,6 +38,9 @@ struct AppConfiguration: Sendable {
     let redisPassword: String?
     let redisDatabase: Int?
 
+    // Alert configuration — optional webhook URL for sending alerts
+    let alertWebhookURL: String?
+
     // Transport configuration — which MCP transport(s) to enable
     let transport: TransportMode
 
@@ -74,6 +77,7 @@ struct AppConfiguration: Sendable {
             redisPort: redisPort,
             redisPassword: redisPassword,
             redisDatabase: redisDatabase,
+            alertWebhookURL: Environment.string("ALERT_WEBHOOK_URL"),
             transport: try Environment.transportMode
         )
     }
