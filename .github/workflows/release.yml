@@ -3,15 +3,15 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      bump_type:
-        description: 'Version bump type'
+      release_type:
+        description: 'Release type'
         required: true
         type: choice
         options:
-          - bugfix
+          - patch
           - minor
           - major
-        default: 'bugfix'
+        default: 'patch'
 
 env:
   SWIFT_VERSION: '6.0'
@@ -159,7 +159,7 @@ jobs:
           set -euo pipefail
 
           # Get bump type from workflow_dispatch input
-          BUMP_TYPE="${{ github.event.inputs.bump_type }}"
+          BUMP_TYPE="${{ github.event.inputs.release_type }}"
           echo "Bump type: $BUMP_TYPE"
 
           # Fetch all tags
@@ -203,7 +203,7 @@ jobs:
               MINOR=$((MINOR + 1))
               PATCH=0
               ;;
-            bugfix)
+            patch)
               PATCH=$((PATCH + 1))
               ;;
             *)
@@ -251,51 +251,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate release notes
-        id: notes
-        run: |
-          set -euo pipefail
-
-          VERSION_TAG="${{ needs.version.outputs.version_tag }}"
-
-          # Find the previous tag for comparison
-          PREVIOUS_TAG=$(git tag -l 'v*.*.*' | sort -V | grep -B1 "^${VERSION_TAG}$" | head -n1 || echo "")
-
-          # Generate commit log
-          if [ -n "$PREVIOUS_TAG" ] && [ "$PREVIOUS_TAG" != "$VERSION_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"- %s (%h)" ${PREVIOUS_TAG}..${VERSION_TAG})
-          else
-            COMMITS=$(git log --pretty=format:"- %s (%h)" ${VERSION_TAG})
-          fi
-
-          # Create release notes with Docker pull instructions
-          cat << EOF > release_notes.md
-          ## Changes
-
-          ${COMMITS}
-
-          ## Docker Image
-
-          Pull the Docker image:
-
-          \`\`\`bash
-          docker pull ghcr.io/${{ github.repository }}:${VERSION_TAG#v}
-          docker pull ghcr.io/${{ github.repository }}:latest
-          \`\`\`
-
-          Available platforms: linux/amd64, linux/arm64
-          EOF
-
-          echo "Release notes generated"
-          cat release_notes.md
-
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.version.outputs.version_tag }}
-          body_path: release_notes.md
-          draft: false
-          prerelease: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ needs.version.outputs.version_tag }}" \
+            --title "Release ${{ needs.version.outputs.version_tag }}" \
+            --generate-notes \
+            --verify-tag
 
   docker:
     name: Build & Push Docker Image
