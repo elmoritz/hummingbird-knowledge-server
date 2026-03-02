@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'Version bump type'
+        description: 'Release type'
         required: true
         type: choice
         options:
@@ -256,6 +256,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ needs.version.outputs.version_tag }}" \
+            --title "Release ${{ needs.version.outputs.version_tag }}" \
             --generate-notes \
             --verify-tag
 
