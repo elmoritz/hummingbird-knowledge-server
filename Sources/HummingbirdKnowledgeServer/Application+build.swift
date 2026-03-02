@@ -18,6 +18,7 @@ import ServiceLifecycle
 @preconcurrency import RediStack
 import NIOCore
 import NIOPosix
+import Foundation
 
 func buildApplication(
     configuration: AppConfiguration
@@ -157,8 +158,42 @@ func buildApplication(
     }
 
     // Infrastructure endpoints — always unauthenticated
-    router.get("/health") { _, _ in
-        ["status": "ok"]
+    router.get("/health") { _, context in
+        // Run all health checks concurrently
+        async let knowledgeStoreCheck = KnowledgeStoreHealthCheck(
+            store: context.dependencies.knowledgeStore
+        ).check()
+        async let githubCheck = GitHubAPIHealthCheck(
+            githubToken: configuration.githubToken
+        ).check()
+        async let sswgCheck = SSWGIndexHealthCheck().check()
+
+        let checks = await [knowledgeStoreCheck, githubCheck, sswgCheck]
+        let response = DetailedHealthResponse(checks: checks)
+
+        // Encode the response to JSON
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let jsonData = try encoder.encode(response)
+
+        // Create a ByteBuffer from the JSON data
+        var buffer = ByteBufferAllocator().buffer(capacity: jsonData.count)
+        buffer.writeBytes(jsonData)
+
+        // Return 503 if any subsystem is unhealthy or degraded
+        if response.status != .healthy {
+            return Response(
+                status: .serviceUnavailable,
+                headers: [.contentType: "application/json"],
+                body: .init(byteBuffer: buffer)
+            )
+        }
+
+        return Response(
+            status: .ok,
+            headers: [.contentType: "application/json"],
+            body: .init(byteBuffer: buffer)
+        )
     }
     router.get("/ready") { _, context in
         let count = await context.dependencies.knowledgeStore.count
