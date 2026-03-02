@@ -367,11 +367,15 @@ extension HTTPTransportTests {
             logger: Logger(label: "com.hummingbird-knowledge-server.test.transport.http")
         )
 
+        // ── Test Metrics ──────────────────────────────────────────────────────────
+        let metricsCollector = MetricsCollector()
+
         // ── Test Dependencies ─────────────────────────────────────────────────────
         let dependencies = AppDependencies(
             mcpServer: mcpServer,
             transport: transport,
-            knowledgeStore: knowledgeStore
+            knowledgeStore: knowledgeStore,
+            metricsCollector: metricsCollector
         )
 
         // ── Router ────────────────────────────────────────────────────────────────
@@ -380,6 +384,7 @@ extension HTTPTransportTests {
         // Middleware — always inject dependencies first
         router.add(middleware: DependencyInjectionMiddleware(dependencies: dependencies))
         router.add(middleware: RequestLoggingMiddleware())
+        router.add(middleware: MetricsMiddleware(metricsCollector: metricsCollector))
 
         // Optional test middleware
         if enableAuth {

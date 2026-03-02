@@ -12,5 +12,6 @@ struct AppDependencies: Sendable {
     let mcpServer: Server
     let transport: HummingbirdTransport
     let knowledgeStore: KnowledgeStore
+    let metricsCollector: MetricsCollector
 
 }

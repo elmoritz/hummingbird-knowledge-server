@@ -7,8 +7,9 @@
 // Middleware registration order is critical:
 //   1. DependencyInjectionMiddleware  ← always first
 //   2. RequestLoggingMiddleware       ← always present
-//   3. AuthMiddleware                 ← only in hosted mode
-//   4. RateLimitMiddleware            ← only in hosted mode
+//   3. MetricsMiddleware              ← always present
+//   4. AuthMiddleware                 ← only in hosted mode
+//   5. RateLimitMiddleware            ← only in hosted mode
 
 import Hummingbird
 import MCP
@@ -87,11 +88,15 @@ func buildApplication(
         throw AppError.noTransportConfigured
     }
 
+    // ── Metrics ───────────────────────────────────────────────────────────────
+    let metricsCollector = MetricsCollector()
+
     // ── Dependencies ──────────────────────────────────────────────────────────
     let dependencies = AppDependencies(
         mcpServer: mcpServer,
         transport: primaryTransport,
-        knowledgeStore: knowledgeStore
+        knowledgeStore: knowledgeStore,
+        metricsCollector: metricsCollector
     )
 
     // ── Router ────────────────────────────────────────────────────────────────
@@ -100,6 +105,7 @@ func buildApplication(
     // Middleware — always present, always first
     router.add(middleware: DependencyInjectionMiddleware(dependencies: dependencies))
     router.add(middleware: RequestLoggingMiddleware())
+    router.add(middleware: MetricsMiddleware(metricsCollector: metricsCollector))
 
     // Hosted-only middleware — not added at all in local mode
     if let token = configuration.authToken {

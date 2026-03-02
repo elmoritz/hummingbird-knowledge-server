@@ -66,11 +66,15 @@ func buildTestApplication(
         logger: Logger(label: "com.hummingbird-knowledge-server.test.transport")
     )
 
+    // ── Test Metrics ──────────────────────────────────────────────────────────
+    let metricsCollector = MetricsCollector()
+
     // ── Test Dependencies ─────────────────────────────────────────────────────
     let dependencies = AppDependencies(
         mcpServer: mcpServer,
         transport: transport,
-        knowledgeStore: knowledgeStore
+        knowledgeStore: knowledgeStore,
+        metricsCollector: metricsCollector
     )
 
     // ── Router ────────────────────────────────────────────────────────────────
@@ -79,6 +83,7 @@ func buildTestApplication(
     // Middleware — always inject dependencies first
     router.add(middleware: DependencyInjectionMiddleware(dependencies: dependencies))
     router.add(middleware: RequestLoggingMiddleware())
+    router.add(middleware: MetricsMiddleware(metricsCollector: metricsCollector))
 
     // Optional test middleware
     if enableAuth {
