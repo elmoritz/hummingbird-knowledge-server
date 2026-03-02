@@ -18,9 +18,9 @@ struct RateLimitMiddleware: RouterMiddleware {
     private let store: RateLimitStore
     private let requestsPerMinute: Int
 
-    init(requestsPerMinute: Int) {
+    init(store: RateLimitStore, requestsPerMinute: Int) {
+        self.store = store
         self.requestsPerMinute = requestsPerMinute
-        self.store = InMemoryRateLimitStore()
     }
 
     func handle(

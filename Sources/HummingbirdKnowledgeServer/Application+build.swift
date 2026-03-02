@@ -113,7 +113,7 @@ func buildApplication(
         logger.info("Auth middleware active")
     }
     if let limit = configuration.rateLimitPerMinute {
-        router.add(middleware: RateLimitMiddleware(requestsPerMinute: limit))
+        router.add(middleware: RateLimitMiddleware(store: InMemoryRateLimitStore(), requestsPerMinute: limit))
         logger.info("Rate limiting active", metadata: ["requestsPerMinute": "\(limit)"])
     }
 

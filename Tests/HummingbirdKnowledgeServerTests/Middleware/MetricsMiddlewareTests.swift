@@ -67,7 +67,7 @@ final class MetricsMiddlewareTests: XCTestCase {
             router.add(middleware: AuthMiddleware(token: "test-token"))
         }
         if enableRateLimit {
-            router.add(middleware: RateLimitMiddleware(requestsPerMinute: 10))
+            router.add(middleware: RateLimitMiddleware(store: InMemoryRateLimitStore(), requestsPerMinute: 10))
         }
 
         router.get("/health") { _, _ in
