@@ -1,0 +1,34 @@
+# Prometheus configuration for hummingbird-knowledge-server monitoring
+#
+# Scrapes metrics from the /metrics endpoint exposed by the service.
+# Works with both local and hosted Docker Compose profiles.
+
+global:
+  scrape_interval: 15s      # How often to scrape targets
+  evaluation_interval: 15s  # How often to evaluate rules
+  scrape_timeout: 10s       # Timeout for each scrape
+
+# Scrape configuration
+scrape_configs:
+  # Local profile: scrape hummingbird-knowledge-local
+  - job_name: 'hummingbird-knowledge-local'
+    static_configs:
+      - targets: ['hummingbird-knowledge-local:8080']
+    metrics_path: '/metrics'
+    scheme: http
+    scrape_interval: 10s
+
+  # Hosted profile: scrape hummingbird-knowledge-hosted
+  - job_name: 'hummingbird-knowledge-hosted'
+    static_configs:
+      - targets: ['hummingbird-knowledge-hosted:8080']
+    metrics_path: '/metrics'
+    scheme: http
+    scrape_interval: 10s
+    # Note: If MCP_AUTH_TOKEN is required for /metrics endpoint,
+    # add bearer_token configuration here
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

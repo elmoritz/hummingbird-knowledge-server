@@ -45,6 +45,41 @@ services:
       retries: 3
       start_period: 5s
 
+  # ── Prometheus ─────────────────────────────────────────────────────────────
+  # Metrics collection and monitoring for observability
+  prometheus-local:
+    profiles: [local]
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+    depends_on:
+      - hummingbird-knowledge-local
+
+  prometheus-hosted:
+    profiles: [hosted]
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+    depends_on:
+      - hummingbird-knowledge-hosted
+
   # ── Local development ──────────────────────────────────────────────────────
   # Runs without authentication — connect at http://localhost:8080/mcp
   hummingbird-knowledge-local:
@@ -103,3 +138,4 @@ services:
 
 volumes:
   redis-data:
+  prometheus-data:
