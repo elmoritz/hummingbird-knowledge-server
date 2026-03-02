@@ -32,6 +32,12 @@ struct AppConfiguration: Sendable {
     // Rate limiting — nil means disabled (local mode default)
     let rateLimitPerMinute: Int?
 
+    // Redis configuration for distributed rate limiting — nil means use in-memory (local mode)
+    let redisHost: String?
+    let redisPort: Int?
+    let redisPassword: String?
+    let redisDatabase: Int?
+
     // Transport configuration — which MCP transport(s) to enable
     let transport: TransportMode
 
@@ -46,6 +52,12 @@ struct AppConfiguration: Sendable {
         // In local mode, default to loopback only — safer.
         let defaultHost = isHosted ? "0.0.0.0" : "127.0.0.1"
 
+        // Redis configuration for distributed rate limiting (hosted mode only)
+        let redisHost = isHosted ? Environment.string("REDIS_HOST", default: "localhost") : nil
+        let redisPort = isHosted ? (try? Environment.int("REDIS_PORT", default: 6379)) : nil
+        let redisPassword = isHosted ? Environment.string("REDIS_PASSWORD") : nil
+        let redisDatabase = isHosted ? (try? Environment.int("REDIS_DB", default: 0)) : nil
+
         return AppConfiguration(
             host: Environment.string("HOST", default: defaultHost),
             port: try Environment.int("PORT", default: 8080),
@@ -58,6 +70,10 @@ struct AppConfiguration: Sendable {
             rateLimitPerMinute: isHosted
                 ? (try? Environment.int("RATE_LIMIT_PER_MINUTE", default: 60)) ?? 60
                 : nil,
+            redisHost: redisHost,
+            redisPort: redisPort,
+            redisPassword: redisPassword,
+            redisDatabase: redisDatabase,
             transport: try Environment.transportMode
         )
     }
