@@ -80,6 +80,43 @@ services:
     depends_on:
       - hummingbird-knowledge-hosted
 
+  # ── Grafana ────────────────────────────────────────────────────────────────
+  # Metrics visualization and dashboards for monitoring
+  grafana-local:
+    profiles: [local]
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ./grafana-datasources-local.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus-local
+
+  grafana-hosted:
+    profiles: [hosted]
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana-datasources-hosted.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus-hosted
+
   # ── Local development ──────────────────────────────────────────────────────
   # Runs without authentication — connect at http://localhost:8080/mcp
   hummingbird-knowledge-local:
@@ -139,3 +176,4 @@ services:
 volumes:
   redis-data:
   prometheus-data:
+  grafana-data:

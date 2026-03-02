@@ -1,0 +1,14 @@
+# Grafana Dashboards Provisioning Configuration
+# Configures where Grafana should look for dashboard JSON files
+apiVersion: 1
+
+providers:
+  - name: 'Hummingbird Knowledge Server'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

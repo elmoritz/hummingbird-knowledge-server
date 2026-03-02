@@ -1,0 +1,16 @@
+# Grafana Data Sources Configuration (Hosted Profile)
+# Auto-provisions Prometheus as a data source for metrics visualization
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    orgId: 1
+    uid: prometheus
+    url: http://prometheus-hosted:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 5s
