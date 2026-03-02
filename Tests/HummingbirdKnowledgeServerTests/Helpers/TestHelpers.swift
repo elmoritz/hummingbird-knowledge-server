@@ -195,7 +195,7 @@ extension XCTestCase {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let decoded = try decoder.decode(T.self, from: response.body)
+        let decoded = try decoder.decode(T.self, from: Data(response.body.readableBytesView))
         try validate(decoded)
     }
 
