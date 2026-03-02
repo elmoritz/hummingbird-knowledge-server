@@ -25,6 +25,7 @@ struct KnowledgeUpdateService: Service {
     let githubToken: String?
     let updateInterval: Duration
     let logger: Logger
+    let alertHook: AlertHook
 
     func run() async throws {
         logger.info(
@@ -213,6 +214,7 @@ struct KnowledgeUpdateService: Service {
             }
         } catch {
             logger.warning("Failed to fetch GitHub release", metadata: ["error": "\(error)"])
+            await alertHook.trigger(event: .knowledgeUpdateFailure(error: "GitHub release fetch failed: \(error)"))
         }
     }
 
@@ -231,6 +233,7 @@ struct KnowledgeUpdateService: Service {
         // Guard against total failure - preserve cached data
         guard !packages.isEmpty else {
             logger.warning("SSWG index update failed: no packages fetched, preserving cached data")
+            await alertHook.trigger(event: .knowledgeUpdateFailure(error: "SSWG index fetch failed: no packages returned"))
             return
         }
 
@@ -278,6 +281,7 @@ struct KnowledgeUpdateService: Service {
             logger.info("Updated SSWG package entries", metadata: ["count": "\(entries.count)"])
         } else {
             logger.warning("No valid SSWG packages to update, preserving cached data")
+            await alertHook.trigger(event: .knowledgeUpdateFailure(error: "SSWG package processing failed: no valid entries"))
         }
     }
 

@@ -246,12 +246,22 @@ func buildApplication(
         )
     }
 
+    // Build alert hook for knowledge update failures
+    let alertLogger = Logger(label: "com.hummingbird-knowledge-server.alerts")
+    let alertHook: AlertHook = if let webhookURLString = configuration.alertWebhookURL,
+                                   let webhookURL = URL(string: webhookURLString) {
+        WebhookAlertHook(webhookURL: webhookURL, logger: alertLogger)
+    } else {
+        LogAlertHook(logger: alertLogger)
+    }
+
     services.append(
         KnowledgeUpdateService(
             store: knowledgeStore,
             githubToken: configuration.githubToken,
             updateInterval: configuration.knowledgeUpdateInterval,
-            logger: Logger(label: "com.hummingbird-knowledge-server.updater")
+            logger: Logger(label: "com.hummingbird-knowledge-server.updater"),
+            alertHook: alertHook
         )
     )
 

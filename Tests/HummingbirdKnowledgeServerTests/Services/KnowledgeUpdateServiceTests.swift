@@ -18,6 +18,7 @@ final class KnowledgeUpdateServiceTests: XCTestCase {
 
     var store: KnowledgeStore!
     var logger: Logger!
+    var alertHook: MockAlertHook!
 
     // MARK: - Setup & Teardown
 
@@ -25,11 +26,13 @@ final class KnowledgeUpdateServiceTests: XCTestCase {
         try await super.setUp()
         store = KnowledgeStore.forTesting(seedEntries: [])
         logger = Logger(label: "com.hummingbird-knowledge-server.test")
+        alertHook = MockAlertHook()
     }
 
     override func tearDown() async throws {
         store = nil
         logger = nil
+        alertHook = nil
         try await super.tearDown()
     }
 
@@ -40,7 +43,8 @@ final class KnowledgeUpdateServiceTests: XCTestCase {
             store: store,
             githubToken: "test-token",
             updateInterval: .seconds(60),
-            logger: logger
+            logger: logger,
+            alertHook: alertHook
         )
 
         XCTAssertNotNil(service, "Service should initialize successfully")
@@ -51,7 +55,8 @@ final class KnowledgeUpdateServiceTests: XCTestCase {
             store: store,
             githubToken: nil,
             updateInterval: .seconds(60),
-            logger: logger
+            logger: logger,
+            alertHook: alertHook
         )
 
         XCTAssertNotNil(service, "Service should initialize successfully without token")
@@ -595,5 +600,20 @@ private class MockURLProtocol: URLProtocol {
 
     override func stopLoading() {
         // No-op
+    }
+}
+
+// MARK: - Mock Alert Hook
+
+/// Mock AlertHook for testing that captures triggered alerts
+private actor MockAlertHook: AlertHook {
+    private(set) var triggeredEvents: [AlertEvent] = []
+
+    func trigger(event: AlertEvent) async {
+        triggeredEvents.append(event)
+    }
+
+    func reset() {
+        triggeredEvents.removeAll()
     }
 }
