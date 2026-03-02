@@ -99,6 +99,215 @@ Authorization: Bearer <your_token>
 | `RATE_LIMIT_PER_MINUTE` | `60` | Max requests per IP per minute (hosted only) |
 | `KNOWLEDGE_UPDATE_INTERVAL` | `3600` | Seconds between auto-updates |
 | `GITHUB_TOKEN` | _(none)_ | Raises GitHub API limit from 60 to 5,000 req/hr |
+| `REDIS_URL` | _(none)_ | Redis connection URL for distributed rate limiting |
+| `REDIS_HOST` | `localhost` | Redis host (if not using `REDIS_URL`) |
+| `REDIS_PORT` | `6379` | Redis port (if not using `REDIS_URL`) |
+| `REDIS_PASSWORD` | _(none)_ | Redis password (optional) |
+| `REDIS_DB` | `0` | Redis database number (optional) |
+| `ALERT_WEBHOOK_URL` | _(none)_ | Webhook URL for operational alerts |
+
+---
+
+## Monitoring & Observability
+
+The server includes production-grade monitoring capabilities for operational visibility.
+
+### Metrics Endpoint
+
+**`GET /metrics`** — Prometheus-compatible metrics endpoint (no authentication required)
+
+**Available metrics:**
+- Request counts by endpoint (`/mcp`, `/health`, `/ready`, `/metrics`)
+- Response latency statistics (mean, p50, p95, p99, min, max)
+- Violation detection counts by rule
+- Knowledge base entry count
+- Last knowledge update timestamp
+
+**Example response:**
+```json
+{
+  "knowledgeEntries": "1247",
+  "status": "ok"
+}
+```
+
+### Enhanced Health Checks
+
+**`GET /health`** — Detailed health status with subsystem checks (no authentication required)
+
+**Health checks:**
+- **KnowledgeStore** — Validates knowledge base is loaded and operational
+- **GitHub API** — Verifies connectivity to GitHub releases API
+- **SSWG Index** — Confirms Swift Server Work Group package index is reachable
+
+**Status codes:**
+- `200 OK` — All subsystems healthy
+- `503 Service Unavailable` — One or more subsystems degraded/unhealthy
+
+**Example response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-03-02T12:34:56Z",
+  "checks": [
+    {
+      "name": "KnowledgeStore",
+      "status": "healthy",
+      "message": "Knowledge base loaded with 1247 entries",
+      "timestamp": "2026-03-02T12:34:56Z"
+    },
+    {
+      "name": "GitHub API",
+      "status": "healthy",
+      "message": "GitHub API reachable",
+      "timestamp": "2026-03-02T12:34:56Z"
+    },
+    {
+      "name": "SSWG Index",
+      "status": "healthy",
+      "message": "SSWG package index reachable",
+      "timestamp": "2026-03-02T12:34:56Z"
+    }
+  ]
+}
+```
+
+**`GET /ready`** — Basic readiness probe for container orchestration
+
+### Prometheus + Grafana Setup
+
+The Docker Compose configuration includes optional Prometheus and Grafana services for metrics collection and visualization.
+
+**Quick start:**
+
+```bash
+# Local profile (with automatic Grafana login)
+docker compose --profile local up
+
+# Hosted profile (requires GRAFANA_ADMIN_PASSWORD in .env)
+docker compose --profile hosted up
+```
+
+**Access dashboards:**
+- **Grafana:** http://localhost:3000 (admin/admin for local profile)
+- **Prometheus:** http://localhost:9090
+
+**Grafana is pre-configured with:**
+- Prometheus data source (auto-provisioned)
+- Custom dashboards (see `grafana-dashboards.yml`)
+
+**Prometheus configuration:**
+
+The `prometheus.yml` file is pre-configured to scrape metrics from the server every 10 seconds:
+
+```yaml
+scrape_configs:
+  - job_name: 'hummingbird-knowledge-local'
+    static_configs:
+      - targets: ['hummingbird-knowledge-local:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+```
+
+**Production deployment:**
+
+For production, configure Prometheus to scrape your deployed instances:
+
+```yaml
+scrape_configs:
+  - job_name: 'hummingbird-knowledge-production'
+    static_configs:
+      - targets: ['your-server:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+```
+
+### Distributed Rate Limiting
+
+For multi-instance deployments, the server uses Redis for distributed rate limiting to ensure consistent limits across all instances.
+
+**Redis configuration (environment variables):**
+
+```bash
+# Single Redis URL (recommended)
+REDIS_URL=redis://localhost:6379
+
+# Or individual settings
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your_password  # optional
+REDIS_DB=0                     # optional, default: 0
+```
+
+**Docker Compose includes Redis:**
+
+```bash
+# Local profile — ephemeral storage
+docker compose --profile local up
+
+# Hosted profile — persistent storage with AOF
+docker compose --profile hosted up
+```
+
+**Redis health check:**
+
+The service includes automatic health checks via `redis-cli ping`. The application server waits for Redis to be healthy before starting.
+
+**Rate limit behavior:**
+- Tracked per client IP address
+- Default: 60 requests per minute (configurable via `RATE_LIMIT_PER_MINUTE`)
+- Returns `429 Too Many Requests` when limit exceeded
+- Automatically exempt endpoints: `/health`, `/ready`
+- Uses sliding window algorithm for accurate limiting
+
+### Alert Webhooks
+
+Configure webhook notifications for operational events:
+
+```bash
+# .env
+ALERT_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
+**Alert events:**
+- Knowledge update failures
+- Rate limit exhaustion
+- Startup failures
+- Health check degradation
+
+**Webhook payload format:**
+
+```json
+{
+  "alert_type": "knowledge_update_failure",
+  "severity": "warning",
+  "message": "Failed to fetch latest Hummingbird releases from GitHub",
+  "timestamp": "2026-03-02T12:34:56Z",
+  "details": {
+    "error": "API rate limit exceeded",
+    "retry_after": "3600"
+  }
+}
+```
+
+**Supported webhook targets:**
+- Slack (incoming webhooks)
+- Discord (webhook URLs)
+- PagerDuty (Events API v2)
+- Custom HTTP endpoints (POST with JSON)
+
+### Performance Metrics
+
+**Metrics overhead:**
+- Target: <1ms per request
+- Implementation: Async actor-based collection
+- Memory: Automatic eviction of samples older than 1 hour
+- Storage: In-memory (export to Prometheus for persistence)
+
+**Sample retention:**
+- Max 1,000 samples per endpoint
+- Samples older than 1 hour automatically evicted
+- Eviction runs every 5 minutes
 
 ---
 
