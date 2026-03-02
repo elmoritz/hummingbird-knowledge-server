@@ -119,6 +119,13 @@ func buildApplication(
         let count = await context.dependencies.knowledgeStore.count
         return ["status": "ok", "knowledgeEntries": "\(count)"]
     }
+    router.get("/metrics") { _, context in
+        let count = await context.dependencies.knowledgeStore.count
+        return [
+            "knowledgeEntries": "\(count)",
+            "status": "ok"
+        ]
+    }
 
     // The MCP endpoint — single path, GET (SSE stream) + POST (messages)
     MCPController().registerRoutes(on: router.group("/mcp"))
